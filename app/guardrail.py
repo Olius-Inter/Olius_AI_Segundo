@@ -99,14 +99,11 @@ POLITICO - opiniões ou debates políticos, partidos, eleições
 
 Mensagem: {mensagem}
 """
-# INDICACAO_INVEST - recomendação direta de ativo específico para comprar/vender/manter
-
 _RESPOSTAS_BLOQUEIO = {
     "OFENSIVO": ("conteudo_ofensivo", "Por favor, mantenha um tom respeitoso para que eu possa te ajudar."),
     "PERIGOSO": ("pedido_perigoso", "Não posso ajudar com esse tipo de solicitação."),
     "ILICITO": ("pedido_ilicito", "Não posso auxiliar com atividades ilegais ou irregulares."),
     "POLITICO": ("pergunta_politica", "Não me envolvo em temas políticos. Posso ajudar com temas relacionado ao projeto."),
-    # "INDICACAO_INVEST": ("indicacao_investimento", "Por regulação, não forneço indicações diretas de ativos. Posso explicar temas relacionados ao projeto."),
 }
 
 def guardrail_entrada(mensagem_anonimizada):
