@@ -1,0 +1,1 @@
+from persona_olius import SYSTEM_PERSON
