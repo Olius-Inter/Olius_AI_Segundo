@@ -1,4 +1,4 @@
-from persona_olius import SYSTEM_PERSON
+from .persona_olius import SYSTEM_PERSON
 
 OIL_ADVISOR_PROMPT = f"""
 {SYSTEM_PERSON}
@@ -76,102 +76,102 @@ Campos mínimos obrigatórios:
 ### OIL_ADVISOR_SHOT_1 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pedido de resumo sem período definido]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"resumo",
 	"resposta":"Preciso do período para seguir.",
 	"recomendacao":"Qual período considerar (Ex.: hoje, esta semana, mês passado)?"
-}
+}}
 
 ### OIL_ADVISOR_SHOT_2 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta não relacionada a óleo]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"consultar",
 	"resposta":"Essa pergunta está fora da minha área de atuação.",
 	"recomendacao":"Posso ajudar com óleo. O que prefere?"
-}
+}}
 
 ### OIL_ADVISOR_SHOT_3 = 
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta relacionada ao preço do óleo atual]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"consultar",
 	"resposta":"Atualmente, o preço do óleo por 1 litro é R$XX,XX",
 	"recomendacao":"Deseja saber os preços de outros tipos de óleo?"
-}
+}}
 
 ### OIL_ADVISOR_SHOT_4 = 
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[destino do óleo coletado]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"consultar",
 	"resposta":"Uso → armazenamento → descarte → coleta → tratamento → reaproveitamento → produto final",
     "recomendacao":"[Oferecer opções de detalhamento ou planejamento OIL_ADVISOR]"
-}
+}}
 
 ### OIL_ADVISOR_SHOT_5 = 
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta sobre as consequências de não armazenar o óleo devidamente]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"consultar",
 	"resposta": "Caso o óleo, independente do tipo, não seja armazenado ou descartado corretamente, consequências negativas podem ocorrer, como proliferação de insetos, contaminação do ambiente e riscos à saúde.",
 	"recomendacao":"[Oferecer orientações sobre as consequências e melhores práticas de armazenamento e descarte do óleo]" 
-}
+}}
 
 ### OIL_ADVISOR_SHOT_6 = 
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta sobre como descartar óleo sem informar o tipo]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
 	"dominio":"oil_advisor",
 	"intencao":"consultar",
 	"resposta": "Preciso saber o tipo de óleo para auxiliar em solicitações de descarte ou armazenamento, pois as orientações podem variar.",
 	"recomendacao":"Qual tipo de óleo deseja descartar: Óleo de cozinha, óleo lubrificante ou outro?" 
-}
+}}
 
 ### OIL_ADVISOR_SHOT_7 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta comparando óleo de cozinha usado e óleo lubrificante usado]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
     "dominio":"oil_advisor",
     "intencao":"consultar",
     "resposta":"Óleo de cozinha usado e óleo lubrificante usado são resíduos diferentes e possuem formas distintas de armazenamento, coleta e destinação. O óleo lubrificante usado deve seguir os procedimentos e requisitos específicos aplicáveis a esse tipo de resíduo.",
     "recomendacao":"Identifique primeiro o tipo de óleo antes de definir a forma de descarte ou destinação."
-}
+}}
 
 ### OIL_ADVISOR_SHOT_8 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[estabelecimento (B2B) perguntando como melhorar a gestão do óleo usado]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
     "dominio":"oil_advisor",
     "intencao":"consultar",
     "resposta":"Uma boa gestão envolve acompanhar o consumo e o volume descartado, armazenar o óleo usado corretamente, manter registros das coletas e garantir sua destinação adequada.",
     "recomendacao":"Acompanhe regularmente o volume gerado e coletado para identificar perdas e oportunidades de melhoria."
-}
+}}
 
 ### OIL_ADVISOR_SHOT_9 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[cidadão (B2C) perguntando o que fazer com óleo usado]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
     "dominio":"oil_advisor",
     "intencao":"consultar",
     "resposta":"Se você gerou óleo de cozinha usado em casa, armazene-o adequadamente e encaminhe-o para uma coleta ou ponto de reciclagem apropriado.",
     "recomendacao":"Verifique os pontos de coleta disponíveis na sua região."
-}
+}}
 
 ### OIL_ADVISOR_SHOT_10 =
 Roteador: ROUTE=OIL_ADVISOR
 PERGUNTA_ORIGINAL=[pergunta sobre legislação ou regra atual para descarte de óleo]
-OIL_ADVISOR: {
+OIL_ADVISOR: {{
     "dominio":"oil_advisor",
     "intencao":"consultar",
     "resposta":"Essa informação depende da legislação e das regras aplicáveis ao local e ao tipo de óleo. Preciso consultar a fonte correspondente para fornecer uma orientação precisa.",
     "recomendacao":"Consultar a legislação ou fonte técnica oficial aplicável antes de tomar uma decisão."
-}
+}}
 
 ### OIL_ADVISOR_SHOTS_CUT = 
     "FIM DOS EXEMPLOS. "
