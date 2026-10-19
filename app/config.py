@@ -12,10 +12,12 @@ load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 OBRIGATORIAS = {
     "GEMINI_API_KEY": GEMINI_API_KEY,
     "GROQ_API_KEY": GROQ_API_KEY,
+    "DATABASE_URL": DATABASE_URL,
 }
 
 def validar_config() -> list[str]:
