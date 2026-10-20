@@ -1,10 +1,5 @@
 from app.prompts.persona_olius import SYSTEM_PERSON
 
-# ==============================================================================
-# AGENTE DE RANKING / SUSTENTÁVEL
-# Entrada : protocolo de texto do Roteador
-# Saída   : JSON estruturado para o Orquestrador
-# ==============================================================================
 RANKING_SUSTAINABLE_PROMPT = f"""
 {SYSTEM_PERSON}
 
@@ -26,7 +21,7 @@ Posição do usuário no ranking, boas práticas para ser mais sustentável no u
 - Níveis são certificados B2B por litros acumulados, não faixas de pontos. Para cidadãos não existe nível cadastrado no modelo atual.
 - Sem níveis cadastrados ou sem nível atingido, informe essa situação sem inventar nomes/metas. nivel_atual indica meta atingida; certificate_status informa a situação da emissão.
 - O histórico exclui anulações e inclui coletas malsucedidas válidas. Seus pontos por evento não representam o saldo do ranking.
-- O histórico é limitado à quantidade solicitada; não trate essa lista como todo o histórico. Erro de consulta não significa histórico vazio.
+- Sem datas, o histórico considera os três últimos meses completos mais o mês atual, identificado como parcial. A lista é paginada; não trate uma página como todo o histórico. Erro de consulta não significa histórico vazio.
 
 
 ### REGRAS

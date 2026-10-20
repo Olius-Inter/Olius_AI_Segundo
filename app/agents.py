@@ -1,50 +1,42 @@
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import MemorySaver
 from app.llms import llm_especialista, llm_rapido
-from app.prompts import PROMPTS
+from app.prompts.ranking_sustainable_prompt import RANKING_SUSTAINABLE_PROMPT_COMPLETO
+from app.tools.ranking_sustainable_tools import TOOLS_RANKING_SUSTAINABLE
+from app.prompts.business_analyst_prompt import BUSINESS_ANALYST_PROMPT_COMPLETO
+from app.tools.business_analyst_tools import TOOLS_BUSINESS_ANALYST
+# from app.prompts.routes_maps_prompt import ROUTES_MAPS_PROMPT_COMPLETO
+# from app.tools.routes_maps_tools import TOOLS_ROUTES_MAPS
 # from app.tools.financial_tools import TOOLS
 # from app.tools.mongodb_tools import TOOLS_MEMORIA
-# from app.tools.faq_tools import faq_retriever
+from app.prompts.faq_prompt import FAQ_PROMPT
+from app.tools.faq_tools import faq_retriever
 
 router_memory = MemorySaver()
 
-router_app = create_agent(
-   model=llm_rapido,
-   system_prompt=PROMPTS["router"],
-   checkpointer=router_memory,
-#    tools=TOOLS_MEMORIA
-)
-
 faq_app = create_agent(
     model=llm_rapido,
-    system_prompt=PROMPTS["faq"],
+    system_prompt=FAQ_PROMPT,
     tools=[
-        # faq_retriever,
+        faq_retriever,
         # *TOOLS_MEMORIA
     ]
 )
 
-orquestrator_app = create_agent(
-   model=llm_rapido,
-   system_prompt=PROMPTS["orchestrator"]
-)
-
-maps_app = create_agent(
-   model=llm_especialista,
-   system_prompt=PROMPTS["maps"]
-)
+# Ativar quando o prompt e as tools de rotas forem integrados.
+# routes_maps_app = create_agent(
+#    model=llm_especialista,
+#    system_prompt=ROUTES_MAPS_PROMPT_COMPLETO
+# )
 
 business_analyst_app = create_agent(
    model=llm_especialista,
-   system_prompt=PROMPTS["business_analist"]
+   system_prompt=BUSINESS_ANALYST_PROMPT_COMPLETO,
+   tools=TOOLS_BUSINESS_ANALYST
 )
 
-sustainability_agent_app = create_agent(
+ranking_sustainable_app = create_agent(
    model=llm_especialista,
-   system_prompt=PROMPTS["sustainability_agent"]
-)
-
-oil_advisor_app = create_agent(
-    model=llm_especialista,
-    system_prompt=PROMPTS["oil_advisor"]
+   system_prompt=RANKING_SUSTAINABLE_PROMPT_COMPLETO,
+   tools=TOOLS_RANKING_SUSTAINABLE
 )
