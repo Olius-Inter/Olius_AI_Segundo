@@ -10,12 +10,15 @@ FAQ_PDF_PATH = DATA_DIR / "faq.pdf"
 
 load_dotenv(BASE_DIR / ".env")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+GOOGLE_MAPS_API_URL = os.getenv(
+    "GOOGLE_MAPS_API_URL",
+    "https://mapstools.googleapis.com/mcp",
+    )
 
 OBRIGATORIAS = {
-    "GEMINI_API_KEY": GEMINI_API_KEY,
     "GROQ_API_KEY": GROQ_API_KEY,
     "DATABASE_URL": DATABASE_URL,
 }

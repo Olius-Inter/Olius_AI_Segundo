@@ -1,10 +1,5 @@
 from persona_olius import SYSTEM_PERSON
 
-# ==============================================================================
-# AGENTE DE ROTAS E MAPAS
-# Entrada : protocolo de texto do Roteador
-# Saída   : JSON estruturado para o Orquestrador
-# ==============================================================================
 ROUTES_MAPS_PROMPT = f"""
 {SYSTEM_PERSON}
 
