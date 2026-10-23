@@ -35,7 +35,6 @@ def validar_config() -> list[str]:
 
 # Testes
 print(validar_config())
-print("GEMINI:", bool(GEMINI_API_KEY))
 print("GROQ:", bool(GROQ_API_KEY))
 print("BASE_DIR:", bool(BASE_DIR))
 print("APP_DIR:", bool(APP_DIR))
