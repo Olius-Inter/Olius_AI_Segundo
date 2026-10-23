@@ -3,9 +3,6 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.llms import llm_especialista, llm_rapido
 from app.prompts import PROMPTS
 from app.tools.faq_tools import faq_retriever
-# from app.tools.financial_tools import TOOLS
-# from app.tools.mongodb_tools import TOOLS_MEMORIA
-# from app.tools.faq_tools import faq_retriever
 
 router_memory = MemorySaver()
 
@@ -13,7 +10,6 @@ router_app = create_agent(
    model=llm_rapido,
    system_prompt=PROMPTS["router"],
    checkpointer=router_memory,
-#    tools=TOOLS_MEMORIA
 )
 
 faq_app = create_agent(
@@ -21,7 +17,6 @@ faq_app = create_agent(
     system_prompt=PROMPTS["faq"],
     tools=[
         faq_retriever,
-        # *TOOLS_MEMORIA
     ]
 )
 
