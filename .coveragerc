@@ -1,0 +1,11 @@
+[run]
+relative_files = True
+source = app
+omit =
+    **/tests/*
+    **/test_*.py
+    **/*_test.py
+    **/conftest.py
+
+[report]
+include_namespace_packages = True
