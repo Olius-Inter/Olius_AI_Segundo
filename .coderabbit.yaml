@@ -1,0 +1,72 @@
+language: "pt-BR"
+
+reviews:
+  profile: "assertive"
+
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_instructions:
+    - path: "app/**/*.py"
+      instructions: |
+        Revise o código considerando boas práticas de Python e FastAPI.
+        Verifique clareza, legibilidade, tratamento de exceções, tipagem,
+        separação de responsabilidades e possíveis efeitos colaterais.
+        Identifique funções excessivamente complexas, duplicação de lógica
+        e acoplamento desnecessário entre módulos.
+
+    - path: "app/routes/**/*.py"
+      instructions: |
+        Revise endpoints FastAPI com atenção para validação de entrada,
+        códigos HTTP, tratamento de erros, contratos de resposta,
+        autenticação/autorização quando aplicável e exposição indevida de dados.
+
+    - path: "app/tools/**/*.py"
+      instructions: |
+        Verifique uso seguro de ferramentas externas, chamadas de serviços,
+        tratamento de falhas, timeouts, validação de entradas e possíveis
+        comportamentos inesperados ao processar respostas de APIs externas.
+
+    - path: "app/prompts/**/*.py"
+      instructions: |
+        Analise prompts considerando clareza, consistência, redundância
+        e risco de instruções conflitantes.
+        Verifique se dados sensíveis ou segredos podem ser inseridos
+        indevidamente nos prompts.
+
+    - path: "app/agents.py"
+      instructions: |
+        Revise a orquestração dos agentes com atenção para fluxo de execução,
+        chamadas de ferramentas, tratamento de falhas e loops inesperados.
+        Verifique se decisões do agente possuem limites claros e seguros.
+
+    - path: "app/graph.py"
+      instructions: |
+        Revise o fluxo do grafo considerando estados, transições,
+        possibilidade de ciclos inesperados e tratamento de erros.
+
+    - path: "app/config.py"
+      instructions: |
+        Verifique o gerenciamento de configurações e variáveis de ambiente.
+        Não devem existir chaves de API, tokens, senhas ou outros segredos
+        hardcoded no código ou registrados em logs.
+
+    - path: "requirements.txt"
+      instructions: |
+        Analise alterações de dependências considerando necessidade,
+        compatibilidade, versões e possíveis riscos de segurança.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Revise alterações no CI com atenção para permissões mínimas,
+        uso seguro de secrets, versões fixadas de GitHub Actions,
+        comandos executados e possíveis riscos de supply chain.
+
+chat:
+  auto_reply: true
