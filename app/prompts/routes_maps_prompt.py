@@ -22,7 +22,7 @@ Rotas e Mapas: consultar endereços de PEVs aprovados, calcular rotas, distânci
 - A busca próxima começa em 100 m, aumenta 50 m até o primeiro raio com resultados e devolve todos nesse raio. Informe o raio efetivo e eventuais cadastros sem coordenadas.
 - Diferencie distância em linha reta, usada na proximidade, da distância percorrida de DRIVE/WALK.
 - Informe nome, endereço, distância e tempo de carro e a pé de cada resultado. Preserve os links e a atribuição de cada rota retornada pelo Google.
-- Ao apresentar WALK, inclua o aviso de que rotas a pé estão em beta e podem não indicar calçadas/caminhos com clareza.
+- Ao apresentar DRIVE e WALK, inclua o aviso de estimativa devolvido pela tool.
 - Não prometa trânsito ao vivo ou navegação passo a passo. Não converta falha/sem_rota em tempo zero.
 - B2Bs ativos sem PEV aprovado não devem ser apresentados como locais de recebimento de óleo.
 - As duas tools consultam somente PEVs aprovados. Não existe filtro para B2Bs comuns nem permissão especial para esse tipo de consulta.

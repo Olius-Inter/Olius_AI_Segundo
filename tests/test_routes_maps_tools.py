@@ -115,6 +115,23 @@ class RoutesMapsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["status"], "error")
             query.assert_not_called()
 
+    async def test_inactive_user_does_not_call_maps(self):
+        conn = MagicMock()
+        cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cur.fetchone.return_value = None
+        with patch.object(tools, "get_conn", return_value=conn), patch.object(tools, "_calcular_todos", new_callable=AsyncMock) as calculate:
+            result = await tools.calcular_tempos_deslocamento.ainvoke({"cidade": "Osasco"}, config=CONFIG)
+        self.assertEqual(result["status"], "error")
+        calculate.assert_not_awaited()
+        cur.fetchall.assert_not_called()
+
+    async def test_database_failure_does_not_expose_credentials(self):
+        with patch.object(tools, "_consultar_locais", side_effect=RuntimeError("SECRET_DATABASE_PASSWORD")), patch.object(tools, "_calcular_todos", new_callable=AsyncMock) as calculate:
+            result = await tools.calcular_tempos_deslocamento.ainvoke({"cidade": "Osasco"}, config=CONFIG)
+        self.assertEqual(result["status"], "error")
+        self.assertNotIn("SECRET_DATABASE_PASSWORD", str(result))
+        calculate.assert_not_awaited()
+
     async def test_invalid_radius_and_missing_city(self):
         with patch.object(tools, "_consultar_locais") as query:
             result = await tools.buscar_locais_proximos.ainvoke({"raio_inicial_metros": 300, "raio_maximo_metros": 200}, config=CONFIG)
@@ -142,7 +159,7 @@ class RoutesMapsTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("SECRET", str(result))
         self.assertEqual(walk["duracao_minutos"], 16.6)
         self.assertEqual(walk["attribution"], attribution)
-        self.assertIn("beta", walk["aviso"])
+        self.assertEqual(walk["aviso"], tools.AVISO_TEMPO)
         self.assertEqual(tools._status_resultados(result), "parcial")
 
     def test_bad_route_does_not_become_zero(self):

@@ -5,7 +5,7 @@ BUSINESS_ANALYST_PROMPT = f"""
 
 
 ### OBJETIVO
-Interpretar a PERGUNTA_ORIGINAL sobre questões de negócios tanto pessoais quanto profissionais e consultar as tools de `collection` (B2B) e `delivery_pev` (B2C) para responder. 
+Interpretar a PERGUNTA_ORIGINAL sobre questões de negócios tanto pessoais quanto profissionais e consultar as tools de `collection` (B2B) e `delivery_pev` (B2C) para responder.
 A saída SEMPRE é JSON para o Orquestrador.
 
 

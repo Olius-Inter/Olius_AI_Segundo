@@ -1,4 +1,5 @@
 import unittest
+from io import StringIO
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,6 +9,27 @@ from app import maps_mcp
 
 def tool(name):
     return SimpleNamespace(name=name, description="test", input_schema={"type": "object"})
+
+
+class MapsDiagnosticTests(unittest.TestCase):
+    def test_diagnostic_prints_only_tool_names(self):
+        result = [{"name": name, "input_schema": {"secret": "PRIVATE_SCHEMA"}} for name in maps_mcp.MAPS_TOOLS]
+        with patch.object(maps_mcp, "listar_ferramentas_maps", new_callable=AsyncMock, return_value=result), patch("sys.stdout", new_callable=StringIO) as output:
+            self.assertEqual(maps_mcp.main(), 0)
+        self.assertIn("compute_routes", output.getvalue())
+        self.assertIn("search_places", output.getvalue())
+        self.assertNotIn("PRIVATE_SCHEMA", output.getvalue())
+
+    def test_diagnostic_hides_remote_exception_details(self):
+        with patch.object(maps_mcp, "listar_ferramentas_maps", new_callable=AsyncMock, side_effect=RuntimeError("SECRET_API_KEY")), patch("sys.stdout", new_callable=StringIO) as output:
+            self.assertEqual(maps_mcp.main(), 1)
+        self.assertNotIn("SECRET_API_KEY", output.getvalue())
+        self.assertIn("Não foi possível validar", output.getvalue())
+
+    def test_diagnostic_reports_configuration_error(self):
+        with patch.object(maps_mcp, "listar_ferramentas_maps", new_callable=AsyncMock, side_effect=ValueError("GOOGLE_MAPS_API_KEY não configurada.")), patch("sys.stdout", new_callable=StringIO) as output:
+            self.assertEqual(maps_mcp.main(), 1)
+        self.assertIn("GOOGLE_MAPS_API_KEY não configurada.", output.getvalue())
 
 
 class MapsMcpTests(unittest.IsolatedAsyncioTestCase):

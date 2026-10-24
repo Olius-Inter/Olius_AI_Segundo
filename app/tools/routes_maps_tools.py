@@ -171,9 +171,8 @@ def _resumir_rota(resultado, modo):
     segundos = _duracao(rota.get("duration"))
     result = {"status": "ok", "modo": modo, "distancia_metros": metros,
               "distancia_km": round(metros / 1000, 3), "duracao_segundos": str(segundos),
-              "duracao_minutos": round(float(segundos / 60), 1), "attribution": rota.get("attribution")}
-    if modo == "WALK":
-        result["aviso"] = AVISO_TEMPO
+              "duracao_minutos": round(float(segundos / 60), 1), "attribution": rota.get("attribution"),
+              "aviso": AVISO_TEMPO}
     return result
 
 
