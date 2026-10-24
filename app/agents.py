@@ -6,38 +6,12 @@ from app.tools.faq_tools import faq_retriever
 
 router_memory = MemorySaver()
 
-router_app = create_agent(
-   model=llm_rapido,
-   system_prompt=PROMPTS["router"],
-   checkpointer=router_memory,
-)
-
 faq_app = create_agent(
     model=llm_rapido,
     system_prompt=PROMPTS["faq"],
     tools=[
         faq_retriever,
     ]
-)
-
-orquestrator_app = create_agent(
-   model=llm_rapido,
-   system_prompt=PROMPTS["orchestrator"]
-)
-
-maps_app = create_agent(
-   model=llm_especialista,
-   system_prompt=PROMPTS["maps"]
-)
-
-business_analyst_app = create_agent(
-   model=llm_especialista,
-   system_prompt=PROMPTS["business_analist"]
-)
-
-sustainability_agent_app = create_agent(
-   model=llm_especialista,
-   system_prompt=PROMPTS["sustainability_agent"]
 )
 
 oil_advisor_app = create_agent(
