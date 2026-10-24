@@ -2,6 +2,7 @@ fastapi==0.141.1
 uvicorn==0.52.4
 python-dotenv==1.2.1
 psycopg[binary]>=3.2,<4
+mcp==2.2.0
 
 langchain==1.2.10
 langgraph==1.0.10

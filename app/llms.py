@@ -8,7 +8,7 @@ llm_gemini = ChatGoogleGenerativeAI(
     temperature=0.7,
     top_p=0.95,
     google_api_key=GEMINI_API_KEY
-)
+) if GEMINI_API_KEY else None
 
 llm_groq = ChatGroq(
    model="openai/gpt-oss-120b",
@@ -16,7 +16,7 @@ llm_groq = ChatGroq(
    api_key=GROQ_API_KEY
 )
 
-llm_especialista = llm_gemini.with_fallbacks([llm_groq])
+llm_especialista = llm_gemini.with_fallbacks([llm_groq]) if llm_gemini else llm_groq
 
 llm_rapido = ChatGroq(
    model="openai/gpt-oss-120b",

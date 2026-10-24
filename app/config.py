@@ -11,6 +11,8 @@ FAQ_PDF_PATH = DATA_DIR / "faq.pdf"
 load_dotenv(BASE_DIR / ".env")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Opcional: os módulos existentes de LLM/FAQ ainda importam esta configuração.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 GOOGLE_MAPS_API_URL = os.getenv(

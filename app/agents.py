@@ -5,8 +5,8 @@ from app.prompts.ranking_sustainable_prompt import RANKING_SUSTAINABLE_PROMPT_CO
 from app.tools.ranking_sustainable_tools import TOOLS_RANKING_SUSTAINABLE
 from app.prompts.business_analyst_prompt import BUSINESS_ANALYST_PROMPT_COMPLETO
 from app.tools.business_analyst_tools import TOOLS_BUSINESS_ANALYST
-# from app.prompts.routes_maps_prompt import ROUTES_MAPS_PROMPT_COMPLETO
-# from app.tools.routes_maps_tools import TOOLS_ROUTES_MAPS
+from app.prompts.routes_maps_prompt import ROUTES_MAPS_PROMPT_COMPLETO
+from app.tools.routes_maps_tools import TOOLS_ROUTES_MAPS
 # from app.tools.financial_tools import TOOLS
 # from app.tools.mongodb_tools import TOOLS_MEMORIA
 from app.prompts.faq_prompt import FAQ_PROMPT
@@ -23,11 +23,11 @@ faq_app = create_agent(
     ]
 )
 
-# Ativar quando o prompt e as tools de rotas forem integrados.
-# routes_maps_app = create_agent(
-#    model=llm_especialista,
-#    system_prompt=ROUTES_MAPS_PROMPT_COMPLETO
-# )
+routes_maps_app = create_agent(
+   model=llm_especialista,
+   system_prompt=ROUTES_MAPS_PROMPT_COMPLETO,
+   tools=TOOLS_ROUTES_MAPS
+)
 
 business_analyst_app = create_agent(
    model=llm_especialista,
