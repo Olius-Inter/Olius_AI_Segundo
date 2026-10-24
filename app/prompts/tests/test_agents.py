@@ -1,11 +1,8 @@
 from unittest.mock import MagicMock, patch
-
 import importlib
 import sys
 
-
 def test_agents_are_created():
-    # Simula dependências externas para não inicializar LLMs ou ferramentas reais.
     with (
         patch("langchain.agents.create_agent") as create_agent,
         patch("langgraph.checkpoint.memory.MemorySaver") as memory_saver,
@@ -15,7 +12,6 @@ def test_agents_are_created():
     ):
         create_agent.side_effect = ["faq_fake", "oil_fake"]
 
-        # Força a execução das instruções do módulo sob teste.
         sys.modules.pop("app.agents", None)
         agents = importlib.import_module("app.agents")
 
