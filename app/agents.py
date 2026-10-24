@@ -1,42 +1,45 @@
 from langchain.agents import create_agent
-from langgraph.checkpoint.memory import MemorySaver
 from app.llms import llm_especialista, llm_rapido
-from app.prompts.ranking_sustainable_prompt import RANKING_SUSTAINABLE_PROMPT_COMPLETO
-from app.tools.ranking_sustainable_tools import TOOLS_RANKING_SUSTAINABLE
-from app.prompts.business_analyst_prompt import BUSINESS_ANALYST_PROMPT_COMPLETO
-from app.tools.business_analyst_tools import TOOLS_BUSINESS_ANALYST
-from app.prompts.routes_maps_prompt import ROUTES_MAPS_PROMPT_COMPLETO
-from app.tools.routes_maps_tools import TOOLS_ROUTES_MAPS
-# from app.tools.financial_tools import TOOLS
-# from app.tools.mongodb_tools import TOOLS_MEMORIA
-from app.prompts.faq_prompt import FAQ_PROMPT
+from app.prompts.prompts import PROMPTS
 from app.tools.faq_tools import faq_retriever
-
-router_memory = MemorySaver()
+from app.tools.routes_maps_tools import buscar_locais_proximos, calcular_tempos_deslocamento
+from app.tools.business_analyst_tools import business_analyst_tool
+from app.tools.ranking_sustainable_tools import ranking_sustainable_tool
 
 faq_app = create_agent(
     model=llm_rapido,
-    system_prompt=FAQ_PROMPT,
+    system_prompt=PROMPTS["faq"],
     tools=[
         faq_retriever,
-        # *TOOLS_MEMORIA
     ]
 )
 
-routes_maps_app = create_agent(
-   model=llm_especialista,
-   system_prompt=ROUTES_MAPS_PROMPT_COMPLETO,
-   tools=TOOLS_ROUTES_MAPS
+oil_advisor_app = create_agent(
+    model=llm_especialista,
+    system_prompt=PROMPTS["oil_advisor"]
 )
 
 business_analyst_app = create_agent(
    model=llm_especialista,
-   system_prompt=BUSINESS_ANALYST_PROMPT_COMPLETO,
-   tools=TOOLS_BUSINESS_ANALYST
+   system_prompt=PROMPTS["business_analyst"],
+   tools=[
+      business_analyst_tool,
+   ]
+)
+
+routes_maps_app = create_agent(
+   model=llm_especialista,
+   system_prompt=PROMPTS["routes_maps"],
+   tools=[
+      buscar_locais_proximos,
+      calcular_tempos_deslocamento
+   ]
 )
 
 ranking_sustainable_app = create_agent(
    model=llm_especialista,
-   system_prompt=RANKING_SUSTAINABLE_PROMPT_COMPLETO,
-   tools=TOOLS_RANKING_SUSTAINABLE
+   system_prompt=PROMPTS["ranking_sustainable"],
+   tools=[
+      ranking_sustainable_tool,
+   ]
 )
