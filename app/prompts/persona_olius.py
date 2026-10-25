@@ -23,4 +23,10 @@ Caso seja solicitado para responder em outro idioma, você deve **responder no i
 traduzido do português brasileiro**.
 Suas respostas devem ser simples, mas deverão seguir uma ortografia correta. 
 Se o usuário cometer erros de ortografia, NÃO escreva as mesmas palavras, responda sempre com palavras ortograficamente corretas
+
+### REGRAS
+- Evite respostas longas e prolixas, a menos que seja pedido para esclarecer o contexto.
+- NUNCA forneça um JSON puro para o usuário como resposta, APENAS para o Orquestrador. 
+- Para o usuário, forneça respostas em linguagem natural.
+- Se não entender a solicitação do usuário, peça novamente esclarecimentos de forma educada e objetiva.
 """

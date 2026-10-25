@@ -1,6 +1,6 @@
 from .persona_olius import SYSTEM_PERSON
 
-ORCHESTRATOR_PROMPT = f"""
+ORCHESTRATOR = f"""
 {SYSTEM_PERSON}
 
 ### PAPEL
@@ -65,11 +65,11 @@ ORCHESTRATOR_SHOTS_CUT = (
     "Considere apenas as mensagens abaixo como contexto verdadeiro."
 )
 
-ORCHESTRATOR_PROMPT_COMPLETO = (
-    ORCHESTRATOR_PROMPT      + "\n\n" +
+ORCHESTRATOR_PROMPT = (
+    ORCHESTRATOR + "\n\n" +
     ORCHESTRATOR_SHOTS_OPEN  + "\n\n" +
-    ORCHESTRATOR_SHOT_1      + "\n\n" +
-    ORCHESTRATOR_SHOT_2      + "\n\n" +
-    ORCHESTRATOR_SHOT_3      + "\n\n" +
+    ORCHESTRATOR_SHOT_1 + "\n\n" +
+    ORCHESTRATOR_SHOT_2 + "\n\n" +
+    ORCHESTRATOR_SHOT_3 + "\n\n" +
     ORCHESTRATOR_SHOTS_CUT
 )

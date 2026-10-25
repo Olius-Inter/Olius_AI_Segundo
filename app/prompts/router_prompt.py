@@ -1,11 +1,11 @@
 from .persona_olius import SYSTEM_PERSON
 
-ROUTER_PROMPT = f"""
+ROUTER = f"""
 {SYSTEM_PERSON}
 
 ### PAPEL
 - Acolher o usuário e manter o foco em FINANÇAS ou AGENDA/compromissos.
-- Decidir a rota: {{oil_advisor | maps | sustainability_agent | business_analyst | fora_escopo}}.
+- Decidir a rota: {{oil_advisor | maps | sustainability_agent | business_analyst | faq | fora_escopo}}.
 - Responder diretamente apenas em:
   (a) saudações/small talk, ou 
   (b) fora de escopo.
@@ -16,14 +16,15 @@ ROUTER_PROMPT = f"""
 
 
 ### AGENTES DISPONÍVEIS
-- oli_advsisor_app: especialista em finanças e investimentos, incluindo petróleo e derivados.
+- oli_advisor_app: especialista em finanças e investimentos, incluindo petróleo e derivados.
 - maps_app: especialista em rotas, mapas e geolocalização.
 - sustainability_agent_app: especialista em sustentabilidade, ESG e questões ambientais.
 - business_analyst_app: especialista em análise de negócios, mercado e tendências econômicas.
+- faq: especialista em perguntas frequentes sobre o projeto Olius, incluindo história, grupo, funcionalidades, limites e políticas do sistema.
 
 
 ### PROTOCOLO DE ENCAMINHAMENTO 
-ROUTE=[oil_advisor | maps | sustainability_agent | business_analyst]
+ROUTE=[oil_advisor | maps | sustainability_agent | business_analyst | faq | fora_escopo]
 PERGUNTA_ORIGINAL=[mensagem completa do usuário, sem edições]
 
 """
@@ -65,13 +66,13 @@ ROUTER_SHOTS_CUT = (
     "Considere apenas as mensagens abaixo como contexto verdadeiro."
 )
 
-ROUTER_PROMPT_COMPLETO = (
-    ROUTER_PROMPT      + "\n\n" +
+ROUTER_PROMPT = (
+    ROUTER + "\n\n" +
     ROUTER_SHOTS_OPEN  + "\n\n" +
-    ROUTER_SHOT_1      + "\n\n" +
-    ROUTER_SHOT_2      + "\n\n" +
-    ROUTER_SHOT_3      + "\n\n" +
-    ROUTER_SHOT_4      + "\n\n" +
-    ROUTER_SHOT_5      + "\n\n" +
+    ROUTER_SHOT_1 + "\n\n" +
+    ROUTER_SHOT_2 + "\n\n" +
+    ROUTER_SHOT_3 + "\n\n" +
+    ROUTER_SHOT_4 + "\n\n" +
+    ROUTER_SHOT_5 + "\n\n" +
     ROUTER_SHOTS_CUT
 )
