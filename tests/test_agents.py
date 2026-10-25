@@ -10,6 +10,9 @@ def test_agents_are_created():
         "business_fake",
         "routes_maps_fake",
         "ranking_fake",
+        "extra_agent_fake",
+        "extra_agent_fake",
+        "extra_agent_fake",
     ]
 
     llms_mock = MagicMock()
