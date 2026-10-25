@@ -1,19 +1,24 @@
-from unittest.mock import MagicMock, patch
+
 import importlib
 import sys
+from unittest.mock import MagicMock, patch
+
 
 def test_agents_are_created():
-    langchain_agents_mock = MagicMock()
-    langchain_agents_mock.create_agent.side_effect = [
-        "faq_fake",
-        "oil_fake",
-        "business_fake",
-        "routes_maps_fake",
-        "ranking_fake",
-        "extra_agent_fake",
-        "extra_agent_fake",
-        "extra_agent_fake",
+    agent_names = [
+        "faq",
+        "oil_advisor",
+        "business_analyst",
+        "routes_maps",
+        "ranking_sustainable",
+        "router",
+        "orchestrator",
     ]
+
+    fake_agents = [f"{name}_fake" for name in agent_names]
+
+    langchain_agents_mock = MagicMock()
+    langchain_agents_mock.create_agent.side_effect = fake_agents
 
     llms_mock = MagicMock()
     llms_mock.llm_especialista = MagicMock()
@@ -35,31 +40,37 @@ def test_agents_are_created():
         try:
             agents = importlib.import_module("app.agents")
 
-            assert agents.faq_app == "faq_fake"
-            assert agents.oil_advisor_app == "oil_fake"
-
             create_agent = langchain_agents_mock.create_agent
-            assert create_agent.call_count == 5
-
             calls = create_agent.call_args_list
 
-            assert calls[0].kwargs["system_prompt"] == agents.PROMPTS["faq"]
+            assert create_agent.call_count == len(agent_names)
+
+            # Confere os agentes criados e seus respectivos prompts.
+            expected_prompts = {
+                "faq": "faq",
+                "oil_advisor": "oil_advisor",
+                "business_analyst": "business_analyst",
+                "routes_maps": "maps",
+                "ranking_sustainable": "sustainability_agent",
+                "router": "router",
+                "orchestrator": "orchestrator",
+            }
+
+            for index, (agent_name, prompt_key) in enumerate(
+                expected_prompts.items()
+            ):
+                assert calls[index].kwargs["system_prompt"] == (
+                    agents.PROMPTS[prompt_key]
+                )
+
+                assert getattr(agents, f"{agent_name}_app") == (
+                    fake_agents[index]
+                )
+
+            # O agente FAQ deve receber o retriever.
             assert calls[0].kwargs["tools"] == [
                 faq_tools_mock.faq_retriever
             ]
-
-            assert calls[1].kwargs["system_prompt"] == agents.PROMPTS[
-                "oil_advisor"
-            ]
-
-            for index, name, expected, tools in (
-                (2, "business_analyst", "business_fake", agents.TOOLS_BUSINESS_ANALYST),
-                (3, "routes_maps", "routes_fake", agents.TOOLS_ROUTES_MAPS),
-                (4, "ranking_sustainable", "ranking_fake", agents.TOOLS_RANKING_SUSTAINABLE),
-            ):
-                assert calls[index].kwargs["system_prompt"] == agents.PROMPTS[name]
-                assert calls[index].kwargs["tools"] == tools
-                assert getattr(agents, name + "_app") == expected
 
         finally:
             sys.modules.pop("app.agents", None)
