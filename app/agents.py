@@ -37,7 +37,7 @@ routes_maps_app = create_agent(
 
 business_analyst_app = create_agent(
    model=llm_especialista,
-   system_prompt=PROMPTS["business_analist"],
+   system_prompt=PROMPTS["business_analyst"],
    tools=TOOLS_BUSINESS_ANALYST,
 )
 
