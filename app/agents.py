@@ -19,7 +19,6 @@ router_app = create_agent(
    system_prompt=PROMPTS["router"]
 )
 
-
 orquestrator_app = create_agent(
    model=llm_rapido,
    system_prompt=PROMPTS["orchestrator"]
