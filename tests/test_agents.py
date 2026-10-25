@@ -8,7 +8,7 @@ def test_agents_are_created():
         "faq_fake",
         "oil_fake",
         "business_fake",
-        "routes_fake",
+        "routes_maps_fake",
         "ranking_fake",
     ]
 
