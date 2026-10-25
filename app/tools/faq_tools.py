@@ -5,12 +5,12 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.config import FAQ_PDF_PATH, GEMINI_API_KEY
 
-loader = PyPDFLoader(FAQ_PDF_PATH)
-docs = loader.load()
-
 @tool
 def faq_retriever(question: str) -> str:
     """Busca no FAQ oficial os trechos mais relevantes para entender a pergunta."""
+
+    # Ler o PDF somente quando o FAQ for consultado, sem bloquear outros agentes.
+    docs = PyPDFLoader(FAQ_PDF_PATH).load()
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=700,chunk_overlap=150)
     chunks = splitter.split_documents(docs)
