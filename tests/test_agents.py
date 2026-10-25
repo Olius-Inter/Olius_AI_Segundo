@@ -1,8 +1,6 @@
-
 import importlib
 import sys
 from unittest.mock import MagicMock, patch
-
 
 def test_agents_are_created():
     agent_names = [
@@ -45,7 +43,6 @@ def test_agents_are_created():
 
             assert create_agent.call_count == len(agent_names)
 
-            # Confere os agentes criados e seus respectivos prompts.
             expected_prompts = {
                 "faq": "faq",
                 "oil_advisor": "oil_advisor",
@@ -67,7 +64,6 @@ def test_agents_are_created():
                     fake_agents[index]
                 )
 
-            # O agente FAQ deve receber o retriever.
             assert calls[0].kwargs["tools"] == [
                 faq_tools_mock.faq_retriever
             ]
