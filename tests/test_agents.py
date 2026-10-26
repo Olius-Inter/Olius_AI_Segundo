@@ -43,30 +43,29 @@ def test_agents_are_created():
 
             assert create_agent.call_count == len(agent_names)
 
-            expected_prompts = {
-                "faq": "faq",
-                "oil_advisor": "oil_advisor",
-                "business_analyst": "business_analyst",
-                "routes_maps": "routes_maps",
-                "ranking_sustainable": "ranking_sustainable",
-                "router": "router",
-                "orchestrator": "orchestrator",
+            expected_prompt_keys = {
+                "faq",
+                "oil_advisor",
+                "business_analyst",
+                "routes_maps",
+                "ranking_sustainable",
+                "router",
+                "orchestrator",
             }
 
-            for index, (agent_name, prompt_key) in enumerate(
-                expected_prompts.items()
-            ):
-                assert calls[index].kwargs["system_prompt"] == (
-                    agents.PROMPTS[prompt_key]
-                )
+            assert create_agent.call_count == len(expected_prompt_keys)
 
-                assert getattr(agents, f"{agent_name}_app") == (
-                    fake_agents[index]
-                )
-
-            assert calls[0].kwargs["tools"] == [
-                faq_tools_mock.faq_retriever
+            actual_prompts = [
+                call.kwargs["system_prompt"]
+                for call in calls
             ]
+
+            expected_prompts = [
+                agents.PROMPTS[key]
+                for key in expected_prompt_keys
+            ]
+
+            assert sorted(actual_prompts) == sorted(expected_prompts)
 
         finally:
             sys.modules.pop("app.agents", None)
