@@ -44,13 +44,13 @@ def test_agents_are_created():
             assert create_agent.call_count == len(agent_names)
 
             expected_prompts = {
-                "faq": "faq",
-                "oil_advisor": "oil_advisor",
-                "business_analyst": "business_analyst",
-                "routes_maps": "routes_maps",
-                "ranking_sustainable": "ranking_sustainable",
-                "router": "router",
-                "orchestrator": "orchestrator",
+                "faq_app": "faq",
+                "oil_advisor_app": "oil_advisor",
+                "business_analyst_app": "business_analyst",
+                "routes_maps_app": "routes_maps",
+                "ranking_sustainable_app": "ranking_sustainable",
+                "router_app": "router",
+                "orchestrator_app": "orchestrator",
             }
 
             for index, (agent_name, prompt_key) in enumerate(
