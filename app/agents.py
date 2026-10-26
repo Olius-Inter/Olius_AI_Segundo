@@ -15,8 +15,8 @@ faq_app = create_agent(
 )
 
 oil_advisor_app = create_agent(
-    model=llm_especialista,
-    system_prompt=PROMPTS["oil_advisor"]
+   model=llm_especialista,
+   system_prompt=PROMPTS["oil_advisor"]
 )
 
 business_analyst_app = create_agent(
@@ -28,11 +28,21 @@ business_analyst_app = create_agent(
 routes_maps_app = create_agent(
    model=llm_especialista,
    system_prompt=PROMPTS["routes_maps"],
-   tools=TOOLS_ROUTES_MAPS
+   tools=TOOLS_ROUTES_MAPS,
 )
 
 ranking_sustainable_app = create_agent(
    model=llm_especialista,
    system_prompt=PROMPTS["ranking_sustainable"],
    tools=TOOLS_RANKING_SUSTAINABLE,
+)
+
+router_app = create_agent(
+   model=llm_rapido,
+   system_prompt=PROMPTS["router"]
+)
+
+orchestrator_app = create_agent(
+   model=llm_rapido,
+   system_prompt=PROMPTS["orchestrator"]
 )
