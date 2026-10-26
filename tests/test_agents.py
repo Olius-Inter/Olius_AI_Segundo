@@ -47,8 +47,8 @@ def test_agents_are_created():
                 "faq": "faq",
                 "oil_advisor": "oil_advisor",
                 "business_analyst": "business_analyst",
-                "routes_maps": "maps",
-                "ranking_sustainable": "sustainability_agent",
+                "routes_maps": "routes_maps",
+                "ranking_sustainable": "ranking_sustainable",
                 "router": "router",
                 "orchestrator": "orchestrator",
             }

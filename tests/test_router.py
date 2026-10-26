@@ -1,11 +1,11 @@
-from app.prompts.router_prompt import ROUTER_PROMPT
+from app.prompts.router_prompt import ROUTER
 from app.prompts.persona_olius import SYSTEM_PERSON
 
 def test_prompt_nao_esta_vazio():
-    assert ROUTER_PROMPT.strip()
+    assert ROUTER.strip()
 
 def test_prompt_inclui_persona():
-    assert SYSTEM_PERSON.strip() in ROUTER_PROMPT
+    assert SYSTEM_PERSON.strip() in ROUTER
 
 def test_prompt_contem_temas_obrigatorios():
     temas = [
@@ -20,4 +20,4 @@ def test_prompt_contem_temas_obrigatorios():
     ]
 
     for tema in temas:
-        assert tema in ROUTER_PROMPT
+        assert tema in ROUTER
