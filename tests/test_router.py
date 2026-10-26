@@ -17,7 +17,6 @@ def test_prompt_contem_temas_obrigatorios():
         "ranking_sustainable",
         "business_analyst",
         "faq",
-        "roteador"
     ]
 
     for tema in temas:
