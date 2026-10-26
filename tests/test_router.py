@@ -13,10 +13,11 @@ def test_prompt_contem_temas_obrigatorios():
         "rota",
         "especialista",
         "oil_advisor",
-        "maps",
-        "sustainability_agent",
+        "routes_maps",
+        "ranking_sustainable",
         "business_analyst",
         "faq",
+        "roteador"
     ]
 
     for tema in temas:
