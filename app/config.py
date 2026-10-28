@@ -12,9 +12,12 @@ load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 MONGODB_URI = os.getenv("MONGODB_URI")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+GOOGLE_MAPS_API_URL = os.getenv("GOOGLE_MAPS_API_URL")
 
 OBRIGATORIAS = {
     "GEMINI_API_KEY": GEMINI_API_KEY,
@@ -30,15 +33,3 @@ def validar_config() -> list[str]:
     if not FAQ_PDF_PATH.exists():
         problemas.append(f"PDF do FAQ não encontrado em: {FAQ_PDF_PATH}")
     return problemas
-
-# Testes
-print(validar_config())
-print("GEMINI:", bool(GEMINI_API_KEY))
-print("GROQ:", bool(GROQ_API_KEY))
-print("BASE_DIR:", bool(BASE_DIR))
-print("APP_DIR:", bool(APP_DIR))
-print("DATA_DIR:", bool(DATA_DIR))
-print("MONGODB_URI:", bool(MONGODB_URI))
-print("QDRANT_URL:", bool(QDRANT_URL))
-print("QDRANT_API_KEY:", bool(QDRANT_API_KEY))
-print(".env:", (BASE_DIR / ".env").exists())
