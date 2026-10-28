@@ -131,7 +131,7 @@ def no_guardrail_saida(estado: Estado) -> dict:
 
 
 def decidir_especialista(estado: Estado) -> str:
-    return estado["rota"] if estado["rota"] in ("oil_advisor", "maps", "sustainability_agent", "business_analyst", "faq") else "fim"
+    return estado["rota"] if estado["rota"] in ("oil_advisor", "routes_maps", "ranking_sustainable", "business_analyst", "faq") else "fim"
 
 def decidir_pos_guardrail_entrada(estado: Estado) -> str:
     return estado["rota"]
@@ -170,8 +170,8 @@ grafo.add_conditional_edges(
 )
 
 grafo.add_edge("oil_advisor", "orchestrator")
-grafo.add_edge("maps", "orchestrator")
-grafo.add_edge("sustainability_agent", "orchestrator")
+grafo.add_edge("routes_maps", "orchestrator")
+grafo.add_edge("ranking_sustainable", "orchestrator")
 grafo.add_edge("business_analyst", "orchestrator")
 grafo.add_edge("orchestrator", "guardrail_saida")
 grafo.add_edge("guardrail_saida", END)
