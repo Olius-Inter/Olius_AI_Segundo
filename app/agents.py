@@ -46,3 +46,14 @@ orchestrator_app = create_agent(
    model=llm_rapido,
    system_prompt=PROMPTS["orchestrator"]
 )
+
+# Dicionário para juntar os agentes e facilitar a importação dos agentes em outros módulos.
+AGENTS = {
+   "faq": faq_app,
+   "oil_advisor": oil_advisor_app,
+   "business_analyst": business_analyst_app,
+   "routes_maps": routes_maps_app,
+   "ranking_sustainable": ranking_sustainable_app,
+   "router": router_app,
+   "orchestrator": orchestrator_app
+}
