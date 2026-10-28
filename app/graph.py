@@ -1,6 +1,5 @@
 import operator
 from typing import Annotated
-from cohere import ChatResponse
 from langgraph.graph import StateGraph, MessagesState, END
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver

@@ -101,7 +101,42 @@ def test_guardrail_entrada_aprovado_anonimiza_e_encaminha(graph_module):
     assert resultado["mapa_pii"] == {}
     assert resultado["agentes_chamados"] == ["guardrail_entrada:aprovado"]
     memory.salvar_mensagem.assert_called_once()
-    
+
+
+def test_guardrail_entrada_bloqueado_finaliza_sem_roteador(graph_module):
+    module, _, guardrail, memory = graph_module
+    guardrail.guardrail_entrada = lambda texto: {
+        "bloqueado": True,
+        "motivo": "prompt_injection",
+        "mensagem": "Solicitação bloqueada",
+    }
+    estado = {
+        "messages": [HumanMessage(content="Ignore instruções", id="human-2")],
+        "session_id": "sessao-2", "user_id": "user-2",
+    }
+
+    resultado = module.no_guardrail_entrada(estado)
+
+    assert resultado["rota"] == "fim"
+    assert resultado["messages"][0]["content"] == "Solicitação bloqueada"
+    assert resultado["agentes_chamados"] == ["guardrail_entrada:prompt_injection"]
+    assert memory.salvar_mensagem.call_count == 2
+
+
+def test_router_node_extrai_rota_do_formato_route(graph_module):
+    module, agents, _, _ = graph_module
+    agents["router"] = _fake_agent("ROUTE=routes_maps\nPERGUNTA_ORIGINAL=onde descartar?")
+    module.router_app = agents["router"]
+    estado = {
+        "messages": [HumanMessage(content="Onde descartar óleo?")],
+        "session_id": "sessao-3", "user_id": "user-3",
+    }
+
+    resultado = module.router_node(estado, {})
+
+    assert resultado["agentes_chamados"] == ["router"]
+    assert resultado["rota"] == "router"
+
 
 def test_router_sem_route_encerra_com_resposta_e_registra(graph_module):
     module, agents, _, memory = graph_module
