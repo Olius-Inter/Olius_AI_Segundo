@@ -105,7 +105,7 @@ def test_guardrail_entrada_aprovado_anonimiza_e_encaminha(graph_module):
 
 def test_guardrail_entrada_bloqueado_finaliza_sem_roteador(graph_module):
     module, _, guardrail, memory = graph_module
-    guardrail.guardrail_entrada = lambda texto: {
+    module.guardrail_entrada = lambda texto: {
         "bloqueado": True,
         "motivo": "prompt_injection",
         "mensagem": "Solicitação bloqueada",
@@ -134,8 +134,8 @@ def test_router_node_extrai_rota_do_formato_route(graph_module):
 
     resultado = module.router_node(estado, {})
 
-    assert resultado["agentes_chamados"] == ["router"]
-    assert resultado["rota"] == "router"
+    assert resultado["agentes_chamados"] == ["router", "routes_maps"]
+    assert resultado["rota"] == "routes_maps"
 
 
 def test_router_sem_route_encerra_com_resposta_e_registra(graph_module):
