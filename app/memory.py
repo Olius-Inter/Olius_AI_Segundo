@@ -4,7 +4,7 @@ Modelagem
 ---------
 Um documento por acesso (sessão = uma conversa completa).
 O _id é um UUID gerado internamente.
-O session_id identifica a CONVERSA (UUID do front, muda a cada sessão).
+O session_id identifica a CONVERSA (UUID, muda a cada sessão).
 O user_id identifica o USUÁRIO (estável entre sessões, necessário para memória).
 
 Documento
@@ -46,9 +46,9 @@ col_sessoes.create_index("user_id")
 col_sessoes.create_index("iniciada_em")
 
 _PROMPT_RESUMO = """\
-Você é um assistente que resume conversas de assessoria financeira e agenda.
+Você é um assistente que resume conversas do escopo do projeto Olius.
 Gere um resumo conciso em 2-4 frases capturando:
-- O que o usuário fez (transações registradas, eventos agendados)
+- O que o usuário fez (descartes, coletas, rotas, análises, relatórios)
 - O que o usuário perguntou
 - Informações relevantes mencionadas (valores, datas, categorias)
 
