@@ -1,36 +1,52 @@
+"""Testes unitários de app.tools.mongodb_tools sem MongoDB, Qdrant ou LLM."""
 
+import importlib
+import sys
 from datetime import datetime
-from unittest.mock import patch
+from types import ModuleType
+from unittest.mock import MagicMock, patch
+import pytest
 
-from app.tools.mongodb_tools import buscar_historico, TOOLS_MEMORIA
+
+@pytest.fixture
+def mongodb_tools(monkeypatch):
+    """Importa app.tools.mongodb_tools com app.memory substituído por um mock."""
+    memory_module = ModuleType("app.memory")
+    memory_module.recuperar_historico = MagicMock(name="recuperar_historico")
+
+    monkeypatch.setitem(sys.modules, "app.memory", memory_module)
+    monkeypatch.delitem(sys.modules, "app.tools.mongodb_tools", raising=False)
+
+    return importlib.import_module("app.tools.mongodb_tools")
 
 
-def executar_tool(busca, config):
+def executar_tool(modulo, busca, config):
     """Executa a tool diretamente, sem chamar o modelo."""
-    return buscar_historico.invoke(
+    return modulo.buscar_historico.invoke(
         {"busca": busca},
         config=config,
     )
 
 
-def test_buscar_historico_sem_user_id():
+def test_buscar_historico_sem_user_id(mongodb_tools):
     config = {"configurable": {}}
 
-    resultado = executar_tool("preferências", config)
+    resultado = executar_tool(mongodb_tools, "preferências", config)
 
     assert resultado == (
         "Não foi possível identificar o usuário para buscar o histórico."
     )
 
 
-def test_buscar_historico_usa_thread_id():
+def test_buscar_historico_usa_thread_id(mongodb_tools):
     config = {"configurable": {"thread_id": "usuario-123"}}
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=[],
     ) as mock_recuperar:
-        resultado = executar_tool("preferências", config)
+        resultado = executar_tool(mongodb_tools, "preferências", config)
 
     mock_recuperar.assert_called_once_with(
         "usuario-123",
@@ -40,7 +56,7 @@ def test_buscar_historico_usa_thread_id():
     assert resultado == "Nenhuma conversa anterior relevante encontrada."
 
 
-def test_buscar_historico_usa_user_id_prioritariamente():
+def test_buscar_historico_usa_user_id_prioritariamente(mongodb_tools):
     config = {
         "configurable": {
             "user_id": "usuario-1",
@@ -48,11 +64,12 @@ def test_buscar_historico_usa_user_id_prioritariamente():
         }
     }
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=[],
     ) as mock_recuperar:
-        executar_tool("planos", config)
+        executar_tool(mongodb_tools, "planos", config)
 
     mock_recuperar.assert_called_once_with(
         "usuario-1",
@@ -61,19 +78,20 @@ def test_buscar_historico_usa_user_id_prioritariamente():
     )
 
 
-def test_buscar_historico_sem_resultados():
+def test_buscar_historico_sem_resultados(mongodb_tools):
     config = {"configurable": {"user_id": "usuario-123"}}
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=None,
     ):
-        resultado = executar_tool("decisões", config)
+        resultado = executar_tool(mongodb_tools, "decisões", config)
 
     assert resultado == "Nenhuma conversa anterior relevante encontrada."
 
 
-def test_buscar_historico_formata_datetime():
+def test_buscar_historico_formata_datetime(mongodb_tools):
     config = {"configurable": {"user_id": "usuario-123"}}
     historico = [
         {
@@ -82,18 +100,19 @@ def test_buscar_historico_formata_datetime():
         }
     ]
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=historico,
     ):
-        resultado = executar_tool("preferências", config)
+        resultado = executar_tool(mongodb_tools, "preferências", config)
 
     assert resultado == (
         "[20/10/2026] O usuário prefere respostas objetivas."
     )
 
 
-def test_buscar_historico_formata_data_como_string():
+def test_buscar_historico_formata_data_como_string(mongodb_tools):
     config = {"configurable": {"user_id": "usuario-123"}}
     historico = [
         {
@@ -102,18 +121,19 @@ def test_buscar_historico_formata_data_como_string():
         }
     ]
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=historico,
     ):
-        resultado = executar_tool("decisões", config)
+        resultado = executar_tool(mongodb_tools, "decisões", config)
 
     assert resultado == (
         "[2026-09-15] O usuário decidiu usar PostgreSQL."
     )
 
 
-def test_buscar_historico_formata_multiplos_resultados():
+def test_buscar_historico_formata_multiplos_resultados(mongodb_tools):
     config = {"configurable": {"user_id": "usuario-123"}}
     historico = [
         {
@@ -126,11 +146,12 @@ def test_buscar_historico_formata_multiplos_resultados():
         },
     ]
 
-    with patch(
-        "app.tools.mongodb_tools.recuperar_historico",
+    with patch.object(
+        mongodb_tools,
+        "recuperar_historico",
         return_value=historico,
     ):
-        resultado = executar_tool("conversas anteriores", config)
+        resultado = executar_tool(mongodb_tools, "conversas anteriores", config)
 
     assert resultado == (
         "[20/10/2026] Primeira conversa.\n\n"
@@ -138,6 +159,6 @@ def test_buscar_historico_formata_multiplos_resultados():
     )
 
 
-def test_tools_memoria_contem_buscar_historico():
-    assert buscar_historico in TOOLS_MEMORIA
-    assert len(TOOLS_MEMORIA) == 1
+def test_tools_memoria_contem_buscar_historico(mongodb_tools):
+    assert mongodb_tools.buscar_historico in mongodb_tools.TOOLS_MEMORIA
+    assert len(mongodb_tools.TOOLS_MEMORIA) == 1
