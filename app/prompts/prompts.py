@@ -6,7 +6,7 @@ from .routes_maps_prompt import ROUTES_MAPS_PROMPT
 from .business_analyst_prompt import BUSINESS_ANALYST_PROMPT
 from .ranking_sustainable_prompt import RANKING_SUSTAINABLE_PROMPT
 
-# Arquivo para juntar os prompts e facilitar a importação dos agentes em outros módulos.
+# Dicionário para juntar os prompts e facilitar a importação dos agentes em outros módulos.
 PROMPTS = {
     "router": ROUTER_PROMPT,
     "orchestrator": ORCHESTRATOR_PROMPT,
