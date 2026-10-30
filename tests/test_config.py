@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture
 def config(monkeypatch, tmp_path):
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("CHATGPT_API_KEY", "test-chatgpt-key")
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.setenv("DATABASE_URL", "postgresql://test:test@localhost/test")
     path = Path(__file__).resolve().parents[1] / "app" / "config.py"

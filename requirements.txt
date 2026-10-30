@@ -6,7 +6,6 @@ mcp==2.2.0
 
 langchain==1.2.10
 langgraph==1.0.10
-# Compatível com o runtime fixado acima; versões novas podem exigir APIs ausentes.
 langgraph-prebuilt==1.0.8
 langchain-community==0.4.1
 langchain_openai==1.7.3
