@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.config import validar_config, FRONTEND_DIR
+from app.config import validar_config
 from app.routes import chat, sessions
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
