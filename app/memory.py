@@ -38,7 +38,7 @@ from app.config import MONGODB_URI
 from app.vectorstore import qdrant, gerar_embedding, COLLECTION_MEMORIA
 
 _mongo = MongoClient(MONGODB_URI)
-db = _mongo["assessor"]
+db = _mongo["olivia-olius"]
 col_sessoes = db["sessoes"]
 
 col_sessoes.create_index("session_id")
