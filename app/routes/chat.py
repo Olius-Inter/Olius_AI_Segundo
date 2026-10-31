@@ -4,7 +4,7 @@ from app.schemas import ChatRequest, ChatResponse
 
 router = APIRouter(tags=["chat"])
 
-@router.post("/chat")
+@router.post("/api/v1/chat")
 def conversar(requisicao: ChatRequest) -> ChatResponse:
     
     resposta = executar_fluxo(
