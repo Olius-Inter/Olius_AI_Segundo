@@ -1,9 +1,3 @@
-"""
-Juiz de fidelidade. Na ordem desta aula ele fala por último.
-Quem decide é o JEV: choice e noul, sem redação.
-A frase fixa, quando entra, é deste arquivo.
-"""
-
 import json
 import urllib.error
 import urllib.request
@@ -12,7 +6,7 @@ from app.config import TYPESAFE_API_KEY
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
 JEV_MODELO = "jev-latest"
 LIMIAR = 0.70
-FRASE_SEGURA = "Não tenho evidência para afirmar isso."
+FRASE_SEGURA = "Não tenho evidências para afirmar isso."
 
 REGRAS = (
     "A pergunta do usuário também é evidência do que ele disse que fez. "
@@ -21,10 +15,12 @@ REGRAS = (
     "Esclarecimento, saudação, oferta de ajuda, sugestão de próximo passo "
     "e ausência de registro contam como apoiada. "
     "Opinião do usuário pode ser citada como fala dele. "
-    "A moeda de cada valor é a que aparece no source_text ou na fala do usuário. "
-    "Moeda trocada, valores de moedas diferentes somados num total só, "
-    "opinião dita como fato do sistema, número, data, telefone ou regra "
-    "que não saiam da evidência contam como sem_apoio."
+    "[business_analyst] Tool: março=120 L, abril=150 L. Resposta: Seu descarte subiu 25% de março para abril. -> apoiada (150/120 = 1,25)."
+    "[business_analyst] Tool: março=120 L, abril=150 L. Resposta: Você descartou 300L no trimestre. -> sem_apoio (300 L não está na evidência)."
+    "[ranking_sustainable] Tool: ranking=null. Resposta: Você está em último lugar. -> sem_apoio (null é ausência de participação, não posição)."
+    "[routes_maps] Tool: PEV Centro, 1,2 km, 14 min a pé. Resposta: O PEV Centro fica a 14 minutos a pé. -> apoiada."
+    "[routes_maps] Tool: PEV Centro, sem horário. Resposta: Ele abre às 8h. -> sem_apoio."
+    "[faq] FAQ não cita prazo. Resposta: O ponto é creditado em 24 horas. -> sem_apoio."
 )
 
 def _texto(mensagem) -> str:
@@ -98,7 +94,7 @@ def _julgar_jev(pergunta, resposta, evidencia):
             "apoiada": {
                 "type": "noul",
                 "instructions": (
-                    # "Seguindo as regras, a resposta é fiel à evidência: todo valor, moeda, "
+                    "Seguindo as regras, a resposta é fiel à evidência: todo valor, registro, local, "
                     "data e fato dela sai da evidência, da fala do usuário ou de contas sobre elas?"
                 ),
             },
