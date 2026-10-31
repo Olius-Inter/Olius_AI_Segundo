@@ -1,62 +1,70 @@
-from unittest.mock import MagicMock, patch
 import importlib
 import sys
+from unittest.mock import MagicMock, patch
 
 def test_agents_are_created():
+    agent_names = [
+        "faq",
+        "oil_advisor",
+        "business_analyst",
+        "routes_maps",
+        "ranking_sustainable",
+        "router",
+        "orchestrator",
+    ]
+    
+    agents_with_memory = agent_names[:5]
+
     langchain_agents_mock = MagicMock()
     langchain_agents_mock.create_agent.side_effect = [
-        "faq_fake",
-        "oil_fake",
-        "business_fake",
-        "routes_fake",
-        "ranking_fake",
+        f"{name}_fake" for name in agent_names
     ]
 
     llms_mock = MagicMock()
-    llms_mock.llm_especialista = MagicMock()
-    llms_mock.llm_rapido = MagicMock()
+    llms_mock.llm_especialista = MagicMock(name="llm_especialista")
+    llms_mock.llm_rapido = MagicMock(name="llm_rapido")
 
     faq_tools_mock = MagicMock()
-    faq_tools_mock.faq_retriever = MagicMock()
+    faq_tools_mock.faq_retriever = MagicMock(name="faq_retriever")
 
-    with patch.dict(
-        sys.modules,
-        {
-            "langchain.agents": langchain_agents_mock,
-            "app.llms": llms_mock,
-            "app.tools.faq_tools": faq_tools_mock,
-        },
-    ):
+    mongodb_tools_mock = MagicMock()
+    buscar_historico_mock = MagicMock(name="buscar_historico")
+    mongodb_tools_mock.TOOLS_MEMORIA = [buscar_historico_mock]
+
+    modules_mock = {
+        "langchain.agents": langchain_agents_mock,
+        "app.llms": llms_mock,
+        "app.tools.faq_tools": faq_tools_mock,
+        "app.tools.mongodb_tools": mongodb_tools_mock,
+    }
+
+    with patch.dict(sys.modules, modules_mock):
         sys.modules.pop("app.agents", None)
 
         try:
             agents = importlib.import_module("app.agents")
 
-            assert agents.faq_app == "faq_fake"
-            assert agents.oil_advisor_app == "oil_fake"
-
             create_agent = langchain_agents_mock.create_agent
-            assert create_agent.call_count == 5
-
             calls = create_agent.call_args_list
 
-            assert calls[0].kwargs["system_prompt"] == agents.PROMPTS["faq"]
-            assert calls[0].kwargs["tools"] == [
-                faq_tools_mock.faq_retriever
-            ]
+            assert create_agent.call_count == len(agent_names)
 
-            assert calls[1].kwargs["system_prompt"] == agents.PROMPTS[
-                "oil_advisor"
-            ]
+            for name, call in zip(agent_names, calls):
+                assert call.kwargs["system_prompt"] == agents.PROMPTS[name]
 
-            for index, name, expected, tools in (
-                (2, "business_analyst", "business_fake", agents.TOOLS_BUSINESS_ANALYST),
-                (3, "routes_maps", "routes_fake", agents.TOOLS_ROUTES_MAPS),
-                (4, "ranking_sustainable", "ranking_fake", agents.TOOLS_RANKING_SUSTAINABLE),
-            ):
-                assert calls[index].kwargs["system_prompt"] == agents.PROMPTS[name]
-                assert calls[index].kwargs["tools"] == tools
-                assert getattr(agents, name + "_app") == expected
+            for name, call in zip(agent_names, calls):
+                tools = call.kwargs.get("tools", [])
+                if name in agents_with_memory:
+                    assert buscar_historico_mock in tools
+                    assert mongodb_tools_mock.TOOLS_MEMORIA not in tools
+                else:
+                    assert tools == []
+
+            faq_call = calls[0]
+            assert faq_tools_mock.faq_retriever in faq_call.kwargs["tools"]
+
+            for name in agent_names:
+                assert getattr(agents, f"{name}_app") == f"{name}_fake"
 
         finally:
             sys.modules.pop("app.agents", None)
