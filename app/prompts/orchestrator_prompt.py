@@ -1,4 +1,4 @@
-from .persona_olius import SYSTEM_PERSON
+from app.prompts.persona_olius import SYSTEM_PERSON
 
 ORCHESTRATOR = f"""
 {SYSTEM_PERSON}
