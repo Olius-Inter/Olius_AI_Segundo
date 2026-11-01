@@ -1,7 +1,7 @@
 import json
 import urllib.error
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, ToolMessage
 from app import judge
 
 class _RespostaFalsa:
@@ -59,21 +59,33 @@ def test_texto_converte_outros_tipos():
     assert judge._texto(object()) == ""
 
 def test_coleta_separa_pergunta_resposta_e_evidencia():
-    pergunta, resposta, evidencia = judge._coleta(_estado("Foram 120 L"))
+    pergunta, resposta, evidencia, _ = judge._coleta(_estado("Foram 120 L"))
     assert pergunta == "Quanto descartei?"
     assert resposta == "Foram 120 L"
     assert "[analisar]\nmarço=120 L" in evidencia
 
-def test_coleta_inclui_chamadas_de_tool_como_evidencia():
+def test_coleta_devolve_id_da_mensagem_de_resposta():
+    estado = {"messages": [
+        HumanMessage(content="oi"),
+        AIMessage(content="olá", id="msg-resposta"),
+    ]}
+
+    _, _, _, id_resposta = judge._coleta(estado)
+
+    assert id_resposta == "msg-resposta"
+
+def test_coleta_ignora_argumentos_de_tool_calls_como_evidencia():
     chamada = AIMessage(
         content="",
         tool_calls=[{"name": "buscar", "args": {"cidade": "São Paulo"}, "id": "1"}],
     )
     estado = {"messages": [HumanMessage(content="oi"), chamada, AIMessage(content="ok")]}
 
-    _, _, evidencia = judge._coleta(estado)
+    _, _, evidencia, _ = judge._coleta(estado)
 
-    assert '[chamada buscar]\n{"cidade": "São Paulo"}' in evidencia
+    assert "São Paulo" not in evidencia
+    assert "buscar" not in evidencia
+    assert evidencia == "(nenhuma tool devolveu conteúdo neste turno)"
 
 def test_coleta_nova_pergunta_descarta_evidencia_anterior():
     estado = {"messages": [
@@ -84,16 +96,29 @@ def test_coleta_nova_pergunta_descarta_evidencia_anterior():
         AIMessage(content="r2"),
     ]}
 
-    pergunta, resposta, evidencia = judge._coleta(estado)
+    pergunta, resposta, evidencia, _ = judge._coleta(estado)
 
     assert pergunta == "segunda"
     assert resposta == "r2"
     assert "dado antigo" not in evidencia
 
+def test_coleta_nova_pergunta_sem_resposta_nao_reaproveita_a_anterior():
+    estado = {"messages": [
+        HumanMessage(content="primeira"),
+        AIMessage(content="resposta antiga", id="msg-antiga"),
+        HumanMessage(content="segunda"),
+    ]}
+
+    pergunta, resposta, _, id_resposta = judge._coleta(estado)
+
+    assert pergunta == "segunda"
+    assert resposta == ""
+    assert id_resposta is None
+
 def test_coleta_sem_tools_usa_texto_padrao():
     estado = {"messages": [HumanMessage(content="oi"), AIMessage(content="olá")]}
 
-    _, _, evidencia = judge._coleta(estado)
+    _, _, evidencia, _ = judge._coleta(estado)
 
     assert evidencia == "(nenhuma tool devolveu conteúdo neste turno)"
 
@@ -104,7 +129,7 @@ def test_coleta_trunca_evidencia_nos_ultimos_6000_caracteres():
         AIMessage(content="r"),
     ]}
 
-    _, _, evidencia = judge._coleta(estado)
+    _, _, evidencia, _ = judge._coleta(estado)
 
     assert len(evidencia) == 6000
     assert evidencia.endswith("FIM")
@@ -117,7 +142,7 @@ def test_coleta_usa_nome_padrao_quando_tool_sem_nome():
 
     estado = {"messages": [ToolSemNome()]}
 
-    _, _, evidencia = judge._coleta(estado)
+    _, _, evidencia, _ = judge._coleta(estado)
 
     assert evidencia.startswith("[tool]\ndado")
 
@@ -134,6 +159,19 @@ def test_publicar_resposta_diferente_substitui_mensagem():
         {"role": "assistant", "content": judge.FRASE_SEGURA}
     ]
     assert resultado["agentes_chamados"] == ["juiz:sem_apoio"]
+
+def test_publicar_remove_resposta_rejeitada_do_estado():
+    resultado = judge._publicar(judge.FRASE_SEGURA, "sem_apoio", "outra", "msg-1")
+
+    remocao, substituta = resultado["messages"]
+    assert isinstance(remocao, RemoveMessage)
+    assert remocao.id == "msg-1"
+    assert substituta == {"role": "assistant", "content": judge.FRASE_SEGURA}
+
+def test_publicar_aprovada_nao_remove_nada():
+    resultado = judge._publicar("igual", "apoiada", "igual", "msg-1")
+
+    assert "messages" not in resultado
 
 def test_publicar_aceita_resposta_original_vazia():
     resultado = judge._publicar("texto", "r", None)
@@ -228,6 +266,35 @@ def test_no_juiz_reprova_resposta_sem_apoio(api):
     resultado = judge.no_juiz(_estado("Foram 999 L"))
 
     assert resultado["messages"][0]["content"] == judge.FRASE_SEGURA
+
+def test_no_juiz_reprovado_remove_a_resposta_rejeitada(api):
+    api["dados"] = _dados("sem_apoio", 0.1)
+    estado = {"messages": [
+        HumanMessage(content="Quanto descartei?"),
+        AIMessage(content="Foram 999 L", id="msg-rejeitada"),
+    ]}
+
+    resultado = judge.no_juiz(estado)
+
+    remocao, substituta = resultado["messages"]
+    assert isinstance(remocao, RemoveMessage)
+    assert remocao.id == "msg-rejeitada"
+    assert substituta["content"] == judge.FRASE_SEGURA
+
+def test_no_juiz_nova_pergunta_sem_resposta_nao_julga_a_antiga(monkeypatch):
+    def nao_deve_chamar(*args, **kwargs):
+        raise AssertionError("não deveria julgar a resposta antiga")
+
+    monkeypatch.setattr(judge, "_julgar_jev", nao_deve_chamar)
+    estado = {"messages": [
+        HumanMessage(content="primeira"),
+        AIMessage(content="resposta antiga"),
+        HumanMessage(content="segunda"),
+    ]}
+
+    resultado = judge.no_juiz(estado)
+
+    assert resultado == {"agentes_chamados": ["juiz:sem_resposta"]}
 
 def test_no_juiz_trata_erro_de_rede_com_frase_segura(monkeypatch, chave, capsys):
     def urlopen_falha(pedido, timeout=None):

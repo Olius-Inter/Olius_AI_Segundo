@@ -1,6 +1,7 @@
 import json
 import urllib.error
 import urllib.request
+from langchain_core.messages import RemoveMessage
 from app.config import TYPESAFE_API_KEY
 
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
@@ -38,41 +39,48 @@ def _texto(mensagem) -> str:
     return str(conteudo or "")
 
 def _coleta(estado):
+    """Devolve pergunta, resposta, evidência e o id da mensagem da resposta.
+
+    A evidência vem só do que o usuário disse e do que as tools devolveram;
+    os argumentos das tool calls são escritos pelo agente e não contam.
+    """
     pergunta = ""
     resposta = ""
+    id_resposta = None
     evidencias = []
     for mensagem in estado["messages"]:
         tipo = getattr(mensagem, "type", "")
         texto = _texto(mensagem).strip()
         if tipo == "human" and texto:
             pergunta = texto
+            resposta = ""
+            id_resposta = None
             evidencias = []
         elif tipo == "tool" and texto:
             nome = getattr(mensagem, "name", "") or "tool"
             evidencias.append(f"[{nome}]\n{texto}")
-        elif tipo == "ai":
-            for chamada in getattr(mensagem, "tool_calls", None) or []:
-                argumentos = json.dumps(chamada.get("args", {}), ensure_ascii=False)
-                evidencias.append(f"[chamada {chamada.get('name')}]\n{argumentos}")
-            if texto:
-                resposta = texto
+        elif tipo == "ai" and texto:
+            resposta = texto
+            id_resposta = getattr(mensagem, "id", None)
     evidencia = "\n\n".join(evidencias).strip()
     if not evidencia:
         evidencia = "(nenhuma tool devolveu conteúdo neste turno)"
-    return pergunta, resposta, evidencia[-6000:]
+    return pergunta, resposta, evidencia[-6000:], id_resposta
 
-def _publicar(texto, rotulo, resposta_original):
+def _publicar(texto, rotulo, resposta_original, id_resposta=None):
     print(f"[juiz] {rotulo}")
     if texto.strip() == (resposta_original or "").strip():
         return {"agentes_chamados": [f"juiz:{rotulo}"]}
+    mensagens = [RemoveMessage(id=id_resposta)] if id_resposta else []
+    mensagens.append({"role": "assistant", "content": texto.strip()})
     return {
-        "messages": [{"role": "assistant", "content": texto.strip()}],
+        "messages": mensagens,
         "agentes_chamados": [f"juiz:{rotulo}"],
     }
 
-def _julgar_jev(pergunta, resposta, evidencia):
+def _julgar_jev(pergunta, resposta, evidencia, id_resposta=None):
     if not TYPESAFE_API_KEY:
-        return _publicar(FRASE_SEGURA, "sem_chave", resposta)
+        return _publicar(FRASE_SEGURA, "sem_chave", resposta, id_resposta)
     corpo = json.dumps({
         "model": JEV_MODELO,
         "state": {
@@ -113,21 +121,21 @@ def _julgar_jev(pergunta, resposta, evidencia):
         with urllib.request.urlopen(pedido, timeout=30) as resp:
             dados = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
-        return _publicar(FRASE_SEGURA, f"erro http {exc.code}", resposta)
+        return _publicar(FRASE_SEGURA, f"erro http {exc.code}", resposta, id_resposta)
     respostas = dados["answers"]
     choice = respostas["veredito"]["choice"]
     noul = float(respostas["apoiada"]["noul"])
     if choice == "apoiada" and noul >= LIMIAR:
-        return _publicar(resposta, f"apoiada noul={noul:.2f}", resposta)
+        return _publicar(resposta, f"apoiada noul={noul:.2f}", resposta, id_resposta)
     rotulo = "apoiada:abaixo_do_limiar" if choice == "apoiada" else choice
-    return _publicar(FRASE_SEGURA, f"{rotulo} noul={noul:.2f}", resposta)
+    return _publicar(FRASE_SEGURA, f"{rotulo} noul={noul:.2f}", resposta, id_resposta)
 
 def no_juiz(estado: dict) -> dict:
-    pergunta, resposta, evidencia = _coleta(estado)
+    pergunta, resposta, evidencia, id_resposta = _coleta(estado)
     if not resposta:
         return {"agentes_chamados": ["juiz:sem_resposta"]}
     try:
-        return _julgar_jev(pergunta, resposta, evidencia)
+        return _julgar_jev(pergunta, resposta, evidencia, id_resposta)
     except Exception as exc:
         print(f"[juiz] erro {exc}")
-        return _publicar(FRASE_SEGURA, "erro", resposta)
+        return _publicar(FRASE_SEGURA, "erro", resposta, id_resposta)
