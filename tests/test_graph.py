@@ -49,10 +49,14 @@ def graph_module():
     memory_module.salvar_mensagem = MagicMock()
     memory_module.encerrar_sessao = MagicMock()
 
+    judge_module = ModuleType("app.judge")
+    judge_module.no_juiz = lambda estado: {"agentes_chamados": ["juiz:apoiada"]}
+
     with patch.dict(sys.modules, {
         "app.agents": agents_module,
         "app.guardrail": guardrail_module,
         "app.memory": memory_module,
+        "app.judge": judge_module,
     }):
         sys.modules.pop("app.graph", None)
         module = importlib.import_module("app.graph")
@@ -71,7 +75,7 @@ def test_grafo_compila_e_tem_nos_esperados(graph_module):
     assert {
         "guardrail_entrada", "router", "oil_advisor", "routes_maps",
         "ranking_sustainable", "business_analyst", "faq", "orchestrator",
-        "guardrail_saida",
+        "guardrail_saida", "juiz",
     }.issubset(node_names)
 
 
@@ -191,4 +195,5 @@ def test_grafo_rota_faq_retorna_resposta_sem_orquestrador(graph_module):
     assert resposta == "Resposta FAQ"
     assert rota == "faq"
     assert "faq" in agentes
+    assert "juiz:apoiada" in agentes
     assert "orchestrator" not in agentes
