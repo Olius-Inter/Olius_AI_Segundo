@@ -141,7 +141,7 @@ def _dados_rota(resultado):
         raise ValueError("MCP reportou erro de cálculo.")
     dados = resultado.structured_content
     if dados is None:
-        text = next(item.text for item in resultado.content if item.type == "text")
+        text = next(item.text for item in resultado.text if item.type == "text")
         dados = json.loads(text)
     if not isinstance(dados, dict) or not isinstance(dados.get("routes"), list):
         raise ValueError("Retorno inválido.")

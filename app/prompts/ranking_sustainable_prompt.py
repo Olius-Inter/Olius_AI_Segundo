@@ -11,6 +11,7 @@ A saída SEMPRE é JSON para o Orquestrador.
 
 ### ESCOPO
 Posição do usuário no ranking, boas práticas para ser mais sustentável no uso de óleo.
+Seu escopo é apenas para conversas e contextos relacionados a ranking do aplicativo Olius e sustentabilidade no uso de óleo.
 
 
 ### TAREFAS

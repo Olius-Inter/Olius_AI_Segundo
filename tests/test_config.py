@@ -26,6 +26,10 @@ def test_valid_configuration_has_no_problems(config):
     assert config.validar_config() == []
 
 
+def test_only_chat_providers_are_required(config):
+    assert set(config.OBRIGATORIAS) == {"CHATGPT_API_KEY", "GROQ_API_KEY"}
+
+
 @pytest.mark.parametrize("missing", [("GROQ_API_KEY",), ("DATABASE_URL",), ("GROQ_API_KEY", "DATABASE_URL")])
 def test_missing_keys_are_reported(config, monkeypatch, missing):
     for name in missing:

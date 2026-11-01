@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
+from app.routes.monitor import router as monitor_router
 
 def _fake_router(path):
     router = APIRouter()
@@ -30,15 +31,20 @@ def main_module():
     sessions_module = ModuleType("app.routes.sessions")
     sessions_module.router = _fake_router("/sessions/teste")
 
+    monitor_module = ModuleType("app.routes.monitor")
+    monitor_module.router = monitor_router
+
     routes_package = ModuleType("app.routes")
     routes_package.chat = chat_module
     routes_package.sessions = sessions_module
+    routes_package.monitor = monitor_module
 
     with patch.dict(sys.modules, {
         "app.config": config_module,
         "app.routes": routes_package,
         "app.routes.chat": chat_module,
         "app.routes.sessions": sessions_module,
+        "app.routes.monitor": monitor_module,
     }):
         sys.modules.pop("app.main", None)
         module = importlib.import_module("app.main")
@@ -69,6 +75,17 @@ def test_health_responde_ok(main_module):
 
     assert resposta.status_code == 200
     assert resposta.json()["status"] == "ok"
+
+
+def test_monitor_retorna_dados_antes_dos_arquivos_estaticos(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get("/monitor")
+    assert resposta.status_code == 200
+    assert resposta.headers["content-type"].startswith("application/json")
+    assert set(resposta.json()) == {
+        "slo", "resumo", "serie_latencia", "serie_custo", "por_modelo", "por_rota", "turnos", "erros_modelo"
+    }
 
 def test_rota_inexistente_retorna_404(main_module):
     module, _, _ = main_module
@@ -125,3 +142,23 @@ def test_cors_responde_preflight(main_module):
 
     assert resposta.status_code == 200
     assert "POST" in resposta.headers["access-control-allow-methods"]
+
+
+@pytest.mark.parametrize("caminho,conteudo", [
+    ("/", "console — assistente"),
+    ("/index.html", "console — assistente"),
+    ("/monitor.html", "monitoramento"),
+    ("/monitor2", "Resumo do monitor"),
+    ("/monitor2.html", "Resumo do monitor"),
+    ("/perfil.html", "perfil"),
+    ("/app.js", "/api/v1/chat"),
+    ("/style.css", ".console"),
+    ("/perfil.js", "/perfil"),
+    ("/perfil.css", ".restricoes__add"),
+])
+def test_frontend_e_arquivos_estaticos(main_module, caminho, conteudo):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get(caminho)
+    assert resposta.status_code == 200
+    assert conteudo in resposta.text

@@ -7,6 +7,7 @@ from langchain_core.messages import RemoveMessage
 from app.guardrail import guardrail_entrada, guardrail_saida, anonimizar_entrada
 from app.memory import iniciar_sessao, salvar_mensagem, encerrar_sessao
 from app.agents import AGENTS
+import asyncio
 
 faq_app = AGENTS["faq"]
 oil_advisor_app = AGENTS["oil_advisor"]
@@ -97,8 +98,8 @@ def router_node(estado: Estado, config: RunnableConfig) -> dict:
 def orchestrator_node(estado: Estado) -> dict:
     ultima_especialista = ""
     for mensagem in reversed(estado["messages"]):
-        if mensagem.type == "ai" and mensagem.content:
-            ultima_especialista = mensagem.content
+        if mensagem.type == "ai" and mensagem.text:
+            ultima_especialista = mensagem.text
             break
     
     saida = orchestrator_app.invoke({
@@ -191,10 +192,17 @@ def executar_fluxo(pergunta_usuario: str, session_id_user: str, user_id: str) ->
         "user_id": user_id
     }
 
-    estado_final = fluxo_agentes.invoke(
-        estado_inicial,
-        config={"configurable": {"thread_id": session_id_user, "user_id": user_id}},
-    ) 
+    estado_final = asyncio.run(
+        fluxo_agentes.ainvoke(
+            estado_inicial,
+            config={
+                "configurable": {
+                    "thread_id": session_id_user,
+                    "user_id": user_id,
+                }
+            },
+        )
+    )
     
     return [
         estado_final["messages"][-1].text,

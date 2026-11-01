@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.config import validar_config
-from app.routes import chat, sessions
+from app.routes import chat, sessions, monitor
 from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
@@ -21,6 +24,7 @@ app = FastAPI(
 
 app.include_router(chat.router)
 app.include_router(sessions.router)
+app.include_router(monitor.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,3 +40,16 @@ def health() -> dict:
     return {
         "status": "ok" if not problemas else problemas,
     }
+
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.get("/monitor2", response_class=FileResponse, include_in_schema=False)
+def monitor2() -> FileResponse:
+    """Abre a tela alternativa de monitoramento."""
+    return FileResponse(FRONTEND_DIR / "monitor2.html")
+
+
+# As rotas de API precisam preceder a montagem na raiz.
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

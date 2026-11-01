@@ -6,14 +6,9 @@ SAÍDA → redigir PII → desanonimizar → revisar compliance (LLM)
 import os, re, uuid
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
+from app.llms import llm_rapido
 
 load_dotenv()
-
-llm = ChatGroq(
-    model="openai/gpt-oss-120b", 
-    temperature=0.0,
-    api_key=os.getenv("GROQ_API_KEY")
-)
 
 # PII — Dados pessoais sensíveis (usar na entrada e saída)
 PII = [
@@ -124,7 +119,7 @@ def guardrail_entrada(mensagem_anonimizada):
             return _bloquear("acesso_dados_internos", "Não posso compartilhar informações internas do sistema.")
 
     # Classificação semântica via LLM (ofensivo, perigoso, ilícito, político)
-    resposta = llm.invoke(_PROMPT_CLASSIFICADOR.format(mensagem=mensagem_anonimizada)).content
+    resposta = llm_rapido.invoke(_PROMPT_CLASSIFICADOR.format(mensagem=mensagem_anonimizada)).text.strip()
 
     categoria = "APROVADO"
     for linha in resposta.splitlines():
@@ -169,7 +164,7 @@ def guardrail_saida(resposta, mapa_pii, restaurar_pii=False):
     resposta = desanonimizar_saida(resposta, mapa_pii, restaurar=restaurar_pii)
 
     # 3. Revisão de compliance
-    saida = llm.invoke(_PROMPT_COMPLIANCE.format(resposta=resposta)).content.strip()
+    saida = llm_rapido.invoke(_PROMPT_COMPLIANCE.format(resposta=resposta)).text.strip()
     if "RESPOSTA:" in saida:
         resposta = saida.split("RESPOSTA:", 1)[1].strip() or resposta
 
