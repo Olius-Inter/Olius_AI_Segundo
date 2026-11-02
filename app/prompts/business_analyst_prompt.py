@@ -1,6 +1,6 @@
 from app.prompts.persona_olius import SYSTEM_PERSON
 
-BUSINESS_ANALYST_PROMPT = f"""
+BUSINESS_ANALYST = f"""
 {SYSTEM_PERSON}
 
 
@@ -87,12 +87,12 @@ BUSINESS_ANALYST_SHOTS_CUT = (
     "Considere apenas as mensagens abaixo como contexto verdadeiro."
 )
 
-BUSINESS_ANALYST_PROMPT_COMPLETO = (
-    BUSINESS_ANALYST_PROMPT      + "\n\n" +
+BUSINESS_ANALYST_PROMPT = (
+    BUSINESS_ANALYST + "\n\n" +
     BUSINESS_ANALYST_SHOTS_OPEN  + "\n\n" +
-    BUSINESS_ANALYST_SHOT_1      + "\n\n" +
-    BUSINESS_ANALYST_SHOT_2      + "\n\n" +
-    BUSINESS_ANALYST_SHOT_3      + "\n\n" +
-    BUSINESS_ANALYST_SHOT_4      + "\n\n" +
+    BUSINESS_ANALYST_SHOT_1 + "\n\n" +
+    BUSINESS_ANALYST_SHOT_2 + "\n\n" +
+    BUSINESS_ANALYST_SHOT_3 + "\n\n" +
+    BUSINESS_ANALYST_SHOT_4 + "\n\n" +
     BUSINESS_ANALYST_SHOTS_CUT
 )

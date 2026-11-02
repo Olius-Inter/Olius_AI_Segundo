@@ -1,6 +1,6 @@
 from app.prompts.persona_olius import SYSTEM_PERSON
 
-RANKING_SUSTAINABLE_PROMPT = f"""
+RANKING_SUSTAINABLE = f"""
 {SYSTEM_PERSON}
 
 
@@ -11,6 +11,7 @@ A saída SEMPRE é JSON para o Orquestrador.
 
 ### ESCOPO
 Posição do usuário no ranking, boas práticas para ser mais sustentável no uso de óleo.
+Seu escopo é apenas para conversas e contextos relacionados a ranking do aplicativo Olius e sustentabilidade no uso de óleo.
 
 
 ### TAREFAS
@@ -72,10 +73,10 @@ RANKING_SUSTAINABLE_SHOTS_CUT = (
     "Considere apenas as mensagens abaixo como contexto verdadeiro."
 )
 
-RANKING_SUSTAINABLE_PROMPT_COMPLETO = (
-    RANKING_SUSTAINABLE_PROMPT      + "\n\n" +
-    RANKING_SUSTAINABLE_SHOTS_OPEN  + "\n\n" +
-    RANKING_SUSTAINABLE_SHOT_1      + "\n\n" +
-    RANKING_SUSTAINABLE_SHOT_2      + "\n\n" +
+RANKING_SUSTAINABLE_PROMPT = (
+    RANKING_SUSTAINABLE + "\n\n" +
+    RANKING_SUSTAINABLE_SHOTS_OPEN + "\n\n" +
+    RANKING_SUSTAINABLE_SHOT_1 + "\n\n" +
+    RANKING_SUSTAINABLE_SHOT_2 + "\n\n" +
     RANKING_SUSTAINABLE_SHOTS_CUT
 )

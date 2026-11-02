@@ -18,3 +18,5 @@ def test_prompt_contem_temas_obrigatorios():
 def test_prompt_orienta_adaptacao_ao_publico():
     assert "cidadão" in OIL_ADVISOR_PROMPT
     assert "estabelecimento" in OIL_ADVISOR_PROMPT
+    assert "B2B" in OIL_ADVISOR_PROMPT
+    assert "B2C" in OIL_ADVISOR_PROMPT

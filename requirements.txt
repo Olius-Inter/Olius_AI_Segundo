@@ -1,17 +1,23 @@
+-c security-constraints.txt
+
 fastapi==0.141.1
 uvicorn==0.52.4
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 psycopg[binary]>=3.2,<4
 mcp==2.2.0
 
-langchain==1.2.10
-langgraph==1.0.10
-# Compatível com o runtime fixado acima; versões novas podem exigir APIs ausentes.
-langgraph-prebuilt==1.0.8
+langchain==1.3.9
+langgraph==1.2.4
+langgraph-prebuilt==1.1.1
+langgraph-sdk==0.4.6
+langchain-classic==1.0.7
 langchain-community==0.4.1
-langchain-google-genai==4.2.1
+langchain_openai==1.7.3
 langchain-groq==1.1.2
-langchain-text-splitters==1.1.1
+langchain-text-splitters==1.1.2
 
 faiss-cpu==1.15.0
-pypdf==6.10.2
+pypdf==6.21.4
+
+pymongo==4.18.3
+qdrant_client==1.19.0

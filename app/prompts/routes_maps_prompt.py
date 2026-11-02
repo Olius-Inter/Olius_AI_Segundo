@@ -1,6 +1,6 @@
 from app.prompts.persona_olius import SYSTEM_PERSON
 
-ROUTES_MAPS_PROMPT = f"""
+ROUTES_MAPS = f"""
 {SYSTEM_PERSON}
 
 
@@ -89,12 +89,12 @@ ROUTES_MAPS_SHOTS_CUT = (
     "Considere apenas as mensagens abaixo como contexto verdadeiro."
 )
 
-ROUTES_MAPS_PROMPT_COMPLETO = (
-    ROUTES_MAPS_PROMPT      + "\n\n" +
+ROUTES_MAPS_PROMPT = (
+    ROUTES_MAPS + "\n\n" +
     ROUTES_MAPS_SHOTS_OPEN  + "\n\n" +
-    ROUTES_MAPS_SHOT_1      + "\n\n" +
-    ROUTES_MAPS_SHOT_2      + "\n\n" +
-    ROUTES_MAPS_SHOT_3      + "\n\n" +
-    ROUTES_MAPS_SHOT_4      + "\n\n" +
+    ROUTES_MAPS_SHOT_1 + "\n\n" +
+    ROUTES_MAPS_SHOT_2 + "\n\n" +
+    ROUTES_MAPS_SHOT_3 + "\n\n" +
+    ROUTES_MAPS_SHOT_4 + "\n\n" +
     ROUTES_MAPS_SHOTS_CUT
 )

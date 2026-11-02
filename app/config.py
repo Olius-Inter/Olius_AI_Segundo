@@ -10,35 +10,35 @@ FAQ_PDF_PATH = DATA_DIR / "faq.pdf"
 
 load_dotenv(BASE_DIR / ".env")
 
+CHATGPT_API_KEY = os.getenv("CHATGPT_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-# Opcional: os módulos existentes de LLM/FAQ ainda importam esta configuração.
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
+MONGODB_URI = os.getenv("MONGODB_URI")
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-GOOGLE_MAPS_API_URL = os.getenv(
-    "GOOGLE_MAPS_API_URL",
-    "https://mapstools.googleapis.com/mcp",
-    )
+GOOGLE_MAPS_API_URL = os.getenv("GOOGLE_MAPS_API_URL")
+CORS_ORIGINS = [
+    origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",") if origin.strip()
+]
+TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY")
 
 OBRIGATORIAS = {
+    "CHATGPT_API_KEY": CHATGPT_API_KEY,
     "GROQ_API_KEY": GROQ_API_KEY,
-    "DATABASE_URL": DATABASE_URL,
 }
 
 def validar_config() -> list[str]:
     """Devolve a lista de problemas de configuração (retorno vazio = tudo certo)."""
     problemas = []
+    if "*" in CORS_ORIGINS:
+        problemas.append("CORS_ORIGINS deve listar origens explícitas, sem '*'.")
     for nome, valor in OBRIGATORIAS.items():
         if not valor:
             problemas.append(f"Variável ausente no .env: {nome}")
     if not FAQ_PDF_PATH.exists():
         problemas.append(f"PDF do FAQ não encontrado em: {FAQ_PDF_PATH}")
     return problemas
-
-# Testes
-print(validar_config())
-print("GROQ:", bool(GROQ_API_KEY))
-print("BASE_DIR:", bool(BASE_DIR))
-print("APP_DIR:", bool(APP_DIR))
-print("DATA_DIR:", bool(DATA_DIR))
-print(".env:", (BASE_DIR / ".env").exists())
