@@ -30,7 +30,6 @@ def graph_module():
         "ranking_sustainable": _fake_agent("Resposta sustentabilidade"),
         "router": _fake_agent("ROUTE=oil_advisor"),
         "orchestrator": _fake_agent("Resposta final revisada"),
-        "judge": _fake_agent("judge:apoiada"),
     }
 
     agents_module = ModuleType("app.agents")
@@ -76,7 +75,7 @@ def test_grafo_compila_e_tem_nos_esperados(graph_module):
     assert {
         "guardrail_entrada", "router", "oil_advisor", "routes_maps",
         "ranking_sustainable", "business_analyst", "faq", "orchestrator",
-        "guardrail_saida", "judge",
+        "guardrail_saida", "juiz",
     }.issubset(node_names)
 
 
@@ -173,6 +172,7 @@ def test_fluxo_completo_chama_especialista_orquestrador_e_guardrail(graph_module
     assert "oil_advisor" in agentes
     assert "orchestrator" in agentes
     assert "guardrail_saida" in agentes
+    assert "juiz:apoiada" in agentes
     memory.iniciar_sessao.assert_called_once_with(
         session_id="sessao-5", user_id="user-5"
     )
@@ -196,13 +196,13 @@ def test_grafo_rota_faq_retorna_resposta_sem_orquestrador(graph_module):
     assert resposta == "Resposta FAQ"
     assert rota == "faq"
     assert "faq" in agentes
-    assert "judge:apoiada" in agentes
+    assert "juiz:apoiada" in agentes
     assert "orchestrator" not in agentes
 
 
 @pytest.mark.parametrize("rota,esperado", [
-    ("oil_advisor", ["guardrail_entrada", "router", "oil_advisor", "orchestrator", "guardrail_saida"]),
-    ("faq", ["guardrail_entrada", "router", "faq"]),
+    ("oil_advisor", ["guardrail_entrada", "router", "oil_advisor", "orchestrator", "guardrail_saida", "juiz"]),
+    ("faq", ["guardrail_entrada", "router", "faq", "juiz"]),
     ("bloqueado", ["guardrail_entrada"]),
 ])
 def test_fluxo_real_do_grafo_registra_etapas_sem_chamar_provedores(graph_module, monkeypatch, rota, esperado):
