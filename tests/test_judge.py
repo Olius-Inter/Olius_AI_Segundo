@@ -229,7 +229,7 @@ def test_pedido_enviado_ao_servico_tem_url_headers_e_corpo(api):
     assert pedido.get_method() == "POST"
     assert pedido.get_header("Authorization") == "Bearer chave-de-teste"
     assert pedido.get_header("Content-type") == "application/json"
-    assert api["timeout"] == 30
+    assert api["timeout"] == 10
     assert corpo["model"] == judge.JEV_MODELO
     assert corpo["state"] == {
         "pergunta": "Quanto descartei?",

@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from app.config import validar_config, CORS_ORIGINS
 from app.routes import chat, sessions, monitor
+from app.request_limits import BodyLimitMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
@@ -21,6 +22,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(BodyLimitMiddleware)
 
 app.include_router(chat.router)
 app.include_router(sessions.router)

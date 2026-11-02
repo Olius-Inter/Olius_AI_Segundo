@@ -27,6 +27,7 @@ def memory_module(monkeypatch):
 
     pymongo_module = ModuleType("pymongo")
     pymongo_module.MongoClient = mongo_client
+    pymongo_module.ReturnDocument = SimpleNamespace(AFTER=True)
 
     class FakePointStruct:
         def __init__(self, **kwargs):
@@ -80,7 +81,6 @@ def memory_module(monkeypatch):
             patcher.setitem(sys.modules, name, module)
         sys.modules.pop("app.memory", None)
         memory = importlib.import_module("app.memory")
-        memory._sessoes_ativas.clear()
         yield SimpleNamespace(
             module=memory,
             collection=collection,
@@ -109,7 +109,7 @@ def test_conexao_usa_timeout_e_reutiliza_colecao(memory_module):
     assert memory_module.module._obter_colecao_sessoes() is primeira
     memory_module.mongo_client.assert_called_once_with(
         "mongodb://test.invalid", serverSelectionTimeoutMS=5000,
-        connectTimeoutMS=5000, socketTimeoutMS=10000,
+        connectTimeoutMS=5000, socketTimeoutMS=5000,
     )
     assert memory_module.collection.create_index.call_count == 3
 
@@ -147,136 +147,118 @@ def test_gerar_resumo_chama_llm_e_remove_espacos(memory_module):
     assert "usuario: Olá" in memory_module.llm.invoke.call_args.args[0]
 
 
-def test_iniciar_sessao_cria_documento_e_indices(memory_module):
+def documento(**changes):
+    return {"_id": "doc-1", "user_id": "dono", "session_id": "sessao-1",
+            "security_version": 2, "estado": "aberta", "turnos": 0,
+            "iniciada_em": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "mensagens": [{"role": "human", "content": "Descartei óleo."}], **changes}
+
+
+def test_proprietario_imutavel_e_indice_unico(memory_module):
+    memory_module.collection.find_one_and_update.return_value = documento()
+    memory_module.module.iniciar_sessao("sessao-1", "dono")
+    query, update = memory_module.collection.find_one_and_update.call_args.args
+    assert query == {"session_id": "sessao-1"}
+    assert update["$setOnInsert"]["user_id"] == "dono"
+    assert "$set" not in update
+    memory_module.collection.create_index.assert_any_call("session_id", unique=True, name="session_id_unique_v2")
+
+
+@pytest.mark.parametrize("operation", ["iniciar_sessao", "recuperar_contexto", "encerrar_sessao"])
+def test_outro_usuario_nao_acessa_conversa(memory_module, operation):
+    from fastapi import HTTPException
+    memory_module.collection.find_one_and_update.return_value = documento()
     memory_module.collection.find_one.return_value = None
-
-    memory_module.module.iniciar_sessao("sessao-1", "usuario-1")
-
-    memory_module.collection.insert_one.assert_called_once()
-    documento = memory_module.collection.insert_one.call_args.args[0]
-    assert documento["session_id"] == "sessao-1"
-    assert documento["user_id"] == "usuario-1"
-    assert documento["resumo"] == ""
-    assert documento["mensagens"] == []
-    assert isinstance(documento["_id"], str)
-    assert memory_module.collection.create_index.call_args_list == [
-        call("session_id"), call("user_id"), call("iniciada_em")
-    ]
+    with pytest.raises(HTTPException) as exc:
+        getattr(memory_module.module, operation)("sessao-1", "intruso")
+    assert exc.value.status_code == 404
+    memory_module.llm.invoke.assert_not_called()
+    memory_module.qdrant.upsert.assert_not_called()
+    if operation != "iniciar_sessao":
+        assert memory_module.collection.find_one.call_args.args[0]["user_id"] == "intruso"
 
 
-def test_iniciar_sessao_nao_duplica_sessao_ativa(memory_module):
+@pytest.mark.parametrize("changes", [{"security_version": 1}, {"estado": "encerrada"}])
+def test_sessao_antiga_ou_encerrada_nao_reabre(memory_module, changes):
+    from fastapi import HTTPException
+    memory_module.collection.find_one_and_update.return_value = documento(**changes)
+    with pytest.raises(HTTPException) as exc:
+        memory_module.module.iniciar_sessao("sessao-1", "dono")
+    assert exc.value.status_code == 409
+
+
+def test_contexto_tem_limite_e_proprietario(memory_module):
+    memory_module.collection.find_one.return_value = documento(mensagens=[{"role": "human", "content": str(i)} for i in range(70)])
+    result = memory_module.module.recuperar_contexto("sessao-1", "dono")
+    assert len(result) == 12
+    assert result[-1]["content"] == "69"
+    assert memory_module.collection.find_one.call_args.args[0]["user_id"] == "dono"
+
+
+def test_limite_de_turnos_recusa_sem_modificacao(memory_module):
+    from fastapi import HTTPException
+    memory_module.collection.update_one.return_value.modified_count = 0
+    with pytest.raises(HTTPException) as exc:
+        memory_module.module.reservar_turno("sessao-1", "dono")
+    assert exc.value.status_code == 409
+    assert memory_module.collection.update_one.call_args.args[0]["user_id"] == "dono"
+
+
+def test_salvar_confere_dono_estado_e_limite(memory_module):
+    memory_module.collection.update_one.return_value.modified_count = 1
+    memory_module.module.salvar_mensagem("sessao-1", "human", "Mensagem", "dono")
+    query, update = memory_module.collection.update_one.call_args.args
+    assert query["user_id"] == "dono" and query["estado"] == "aberta"
+    assert "$expr" in query
+    assert update["$push"]["mensagens"]["content"] == "Mensagem"
+    with pytest.raises(ValueError):
+        memory_module.module.salvar_mensagem("sessao-1", "human", "x" * 8001, "dono")
+
+
+def test_encerramento_idempotente_nao_chama_llm(memory_module):
+    memory_module.collection.find_one.return_value = documento(estado="encerrada", resumo="Resumo")
+    assert memory_module.module.encerrar_sessao("sessao-1", "dono") == "Resumo"
+    memory_module.llm.invoke.assert_not_called()
+
+
+def test_encerramento_sem_mensagens_e_sem_custo(memory_module):
+    memory_module.collection.find_one.return_value = documento(mensagens=[])
+    memory_module.collection.update_one.return_value.modified_count = 1
+    assert memory_module.module.encerrar_sessao("sessao-1", "dono") == ""
+    memory_module.llm.invoke.assert_not_called()
+
+
+def test_encerramento_salva_resumo_com_dono_e_versao(memory_module, monkeypatch):
+    memory_module.collection.find_one.return_value = documento()
+    memory_module.collection.update_one.return_value.modified_count = 1
+    monkeypatch.setattr(memory_module.module, "_gerar_resumo", lambda messages: "Resumo seguro")
+    assert memory_module.module.encerrar_sessao("sessao-1", "dono") == "Resumo seguro"
+    point = memory_module.qdrant.upsert.call_args.kwargs["points"][0]
+    assert point.payload["user_id"] == "dono" and point.payload["security_version"] == 2
+    assert memory_module.collection.update_one.call_args.args[0]["user_id"] == "dono"
+
+
+def test_falha_no_resumo_restabelece_estado_sem_expor_segredo(memory_module, monkeypatch):
+    memory_module.collection.find_one.return_value = documento()
+    memory_module.collection.update_one.return_value.modified_count = 1
+    monkeypatch.setattr(memory_module.module, "_gerar_resumo", MagicMock(side_effect=RuntimeError("Falha")))
+    with pytest.raises(RuntimeError):
+        memory_module.module.encerrar_sessao("sessao-1", "dono")
+    assert memory_module.collection.update_one.call_args.args[1]["$set"]["estado"] == "aberta"
+
+
+def test_historico_vetorial_filtra_dono_e_versao(memory_module):
+    memory_module.qdrant.query_points.return_value.points = [SimpleNamespace(id="d", payload={"resumo": "Seguro", "iniciada_em": "2026-01-01"})]
+    result = memory_module.module.recuperar_historico("dono", "descarte")
+    assert result[0]["resumo"] == "Seguro"
+    filters = memory_module.qdrant.query_points.call_args.kwargs["query_filter"].must
+    assert {(f.key, f.match.value) for f in filters} == {("user_id", "dono"), ("security_version", 2)}
+
+
+def test_historico_mongo_e_mensagens_exigem_dono(memory_module):
+    memory_module.collection.find.return_value = FakeCursor([])
+    assert memory_module.module.recuperar_historico("dono") == []
+    assert memory_module.collection.find.call_args.args[0]["user_id"] == "dono"
     memory_module.collection.find_one.return_value = None
-    memory_module.module._sessoes_ativas["sessao-existente"] = "doc-1"
-
-    memory_module.module.iniciar_sessao("sessao-existente", "usuario-1")
-
-    memory_module.collection.insert_one.assert_not_called()
-
-
-def test_salvar_mensagem_insere_mensagem_e_atualiza_data(memory_module):
-    memory_module.module._sessoes_ativas["sessao-1"] = "doc-1"
-
-    memory_module.module.salvar_mensagem(
-        "sessao-1", "usuario", "Como descartar óleo?", "usuario-1"
-    )
-
-    memory_module.collection.update_one.assert_called_once()
-    filtro, atualizacao = memory_module.collection.update_one.call_args.args
-    assert filtro == {"_id": "doc-1"}
-    assert atualizacao["$push"]["mensagens"] == {
-        "role": "usuario", "content": "Como descartar óleo?"
-    }
-    assert "atualizada_em" in atualizacao["$set"]
-
-
-def test_encerrar_sessao_sem_documento_retorna_string_vazia(memory_module):
-    memory_module.collection.find_one.return_value = None
-
-    assert memory_module.module.encerrar_sessao("inexistente") == ""
-
-
-def test_encerrar_sessao_sem_mensagens_limpa_sessao_ativa(memory_module):
-    memory_module.module._sessoes_ativas["sessao-1"] = "doc-1"
-    memory_module.collection.find_one.return_value = {"_id": "doc-1", "mensagens": []}
-
-    assert memory_module.module.encerrar_sessao("sessao-1") == ""
-    assert "sessao-1" not in memory_module.module._sessoes_ativas
-
-
-def test_encerrar_sessao_gera_resumo_e_salva_no_qdrant(memory_module, monkeypatch):
-    inicio = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    memory_module.module._sessoes_ativas["sessao-1"] = "doc-1"
-    memory_module.collection.find_one.return_value = {
-        "_id": "doc-1",
-        "user_id": "usuario-1",
-        "iniciada_em": inicio,
-        "mensagens": [{"role": "usuario", "content": "Descartei óleo."}],
-    }
-    monkeypatch.setattr(memory_module.module, "_gerar_resumo", lambda mensagens: "Resumo salvo")
-
-    resumo = memory_module.module.encerrar_sessao("sessao-1")
-
-    assert resumo == "Resumo salvo"
-    assert memory_module.collection.update_one.call_args.args[1]["$set"]["resumo"] == "Resumo salvo"
-    memory_module.vectorstore.gerar_embedding.assert_called_once_with("Resumo salvo")
-    memory_module.qdrant.upsert.assert_called_once()
-    kwargs = memory_module.qdrant.upsert.call_args.kwargs
-    assert kwargs["collection_name"] == "memoria_resumos"
-    ponto = kwargs["points"][0]
-    assert ponto.id == "doc-1"
-    assert ponto.payload["user_id"] == "usuario-1"
-    assert ponto.payload["session_id"] == "sessao-1"
-    assert ponto.payload["resumo"] == "Resumo salvo"
-    assert "sessao-1" not in memory_module.module._sessoes_ativas
-
-
-def test_recuperar_historico_usa_qdrant_quando_busca_tem_resultados(memory_module):
-    memory_module.vectorstore.gerar_embedding.return_value = [0.4, 0.5]
-    memory_module.qdrant.query_points.return_value.points = [
-        SimpleNamespace(
-            id="doc-1",
-            payload={"iniciada_em": "2026-01-01", "resumo": "Resumo anterior"},
-        )
-    ]
-
-    historico = memory_module.module.recuperar_historico("usuario-1", "pontos de coleta", 2)
-
-    assert historico == [{
-        "doc_id": "doc-1",
-        "iniciada_em": "2026-01-01",
-        "resumo": "Resumo anterior",
-    }]
-    memory_module.vectorstore.gerar_embedding.assert_called_once_with("pontos de coleta")
-    memory_module.qdrant.query_points.assert_called_once()
-    memory_module.collection.find.assert_not_called()
-
-
-def test_recuperar_historico_faz_fallback_para_mongodb(memory_module):
-    memory_module.qdrant.query_points.return_value.points = []
-    memory_module.collection.find.return_value = FakeCursor([
-        {"_id": "doc-2", "iniciada_em": "2026-02-01", "resumo": "Resumo do Mongo"}
-    ])
-
-    historico = memory_module.module.recuperar_historico("usuario-1", "busca sem resultado", 3)
-
-    assert historico == [{
-        "doc_id": "doc-2",
-        "iniciada_em": "2026-02-01",
-        "resumo": "Resumo do Mongo",
-    }]
-    memory_module.collection.find.assert_called_once_with(
-        {"user_id": "usuario-1", "resumo": {"$nin": ["", None]}},
-        {"resumo": 1, "iniciada_em": 1},
-    )
-
-
-def test_recuperar_mensagens_retorna_lista_ou_vazia(memory_module):
-    memory_module.collection.find_one.side_effect = [
-        {"mensagens": [{"role": "usuario", "content": "Oi"}]},
-        None,
-    ]
-
-    assert memory_module.module.recuperar_mensagens("doc-1") == [
-        {"role": "usuario", "content": "Oi"}
-    ]
-    assert memory_module.module.recuperar_mensagens("nao-existe") == []
+    assert memory_module.module.recuperar_mensagens("doc", "dono") == []
+    assert memory_module.collection.find_one.call_args.args[0] == {"_id": "doc", "user_id": "dono", "security_version": 2}

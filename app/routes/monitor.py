@@ -8,7 +8,8 @@ e custo do modelo. Avaliação da resposta não entra aqui.
 
 import math
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.security import exigir_admin, UsuarioAutenticado
 
 from app.observability import (
     LIMITE_P95_MS,
@@ -160,12 +161,12 @@ def montar_painel() -> dict:
         "por_agente": por_agente,
         "por_transicao": por_transicao,
         "turnos": [
-            {**t, "custo_usd": round(t["custo_usd"], 6)} for t in turnos
+            {**{k: v for k, v in t.items() if k != "session_id"}, "custo_usd": round(t["custo_usd"], 6)} for t in turnos
         ],
     }
 
 
 @router.get("/api/v1/monitor")
-def painel() -> dict:
+def painel(usuario: UsuarioAutenticado = Depends(exigir_admin)) -> dict:
     """Números do processo atual. Reiniciar o servidor zera o registro."""
     return montar_painel()

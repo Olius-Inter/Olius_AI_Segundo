@@ -13,10 +13,11 @@ from qdrant_client import QdrantClient, models
 from langchain_openai import OpenAIEmbeddings
 from app.config import QDRANT_URL, QDRANT_API_KEY, CHATGPT_API_KEY
 
-qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, timeout=5)
 
 # Não mistura espaços vetoriais diferentes nem altera o índice antigo.
 COLLECTION_MEMORIA = "memoria_resumos_openai_768"
+COLLECTION_FAQ = "faq_chunks"
 EMBEDDING_DIM = 768
 
 @lru_cache(maxsize=1)
@@ -28,6 +29,7 @@ def obter_embeddings() -> OpenAIEmbeddings:
         model="text-embedding-3-small",
         api_key=CHATGPT_API_KEY,
         dimensions=EMBEDDING_DIM,
+        request_timeout=15, max_retries=0,
     )
 
 
