@@ -1,11 +1,11 @@
 import importlib
 import sys
-from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
+from app.routes.monitor import router as monitor_router
 
 def _fake_router(path):
     router = APIRouter()
@@ -22,7 +22,7 @@ def main_module():
 
     config_module = ModuleType("app.config")
     config_module.validar_config = MagicMock(side_effect=lambda: list(problemas))
-    config_module.FRONTEND_DIR = Path("frontend-inexistente")
+    config_module.CORS_ORIGINS = ["http://localhost:8000"]
 
     chat_module = ModuleType("app.routes.chat")
     chat_module.router = _fake_router("/api/v1/chat")
@@ -30,15 +30,20 @@ def main_module():
     sessions_module = ModuleType("app.routes.sessions")
     sessions_module.router = _fake_router("/sessions/teste")
 
+    monitor_module = ModuleType("app.routes.monitor")
+    monitor_module.router = monitor_router
+
     routes_package = ModuleType("app.routes")
     routes_package.chat = chat_module
     routes_package.sessions = sessions_module
+    routes_package.monitor = monitor_module
 
     with patch.dict(sys.modules, {
         "app.config": config_module,
         "app.routes": routes_package,
         "app.routes.chat": chat_module,
         "app.routes.sessions": sessions_module,
+        "app.routes.monitor": monitor_module,
     }):
         sys.modules.pop("app.main", None)
         module = importlib.import_module("app.main")
@@ -69,6 +74,18 @@ def test_health_responde_ok(main_module):
 
     assert resposta.status_code == 200
     assert resposta.json()["status"] == "ok"
+
+
+def test_monitor_retorna_dados_antes_dos_arquivos_estaticos(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get("/api/v1/monitor")
+    assert resposta.status_code == 200
+    assert resposta.headers["content-type"].startswith("application/json")
+    assert set(resposta.json()) == {
+        "slo", "resumo", "serie_latencia", "serie_custo", "por_modelo", "por_rota", "turnos", "erros_modelo",
+        "por_agente", "por_transicao",
+    }
 
 def test_rota_inexistente_retorna_404(main_module):
     module, _, _ = main_module
@@ -125,3 +142,35 @@ def test_cors_responde_preflight(main_module):
 
     assert resposta.status_code == 200
     assert "POST" in resposta.headers["access-control-allow-methods"]
+
+
+@pytest.mark.parametrize("caminho,conteudo", [
+    ("/", "Resumo do monitor"),
+    ("/monitor", "Resumo do monitor"),
+    ("/monitor.html", "Resumo do monitor"),
+])
+def test_monitor_principal_e_servido(main_module, caminho, conteudo):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get(caminho)
+    assert resposta.status_code == 200
+    assert conteudo in resposta.text
+
+
+def test_raiz_redireciona_para_monitor(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get("/", follow_redirects=False)
+    assert resposta.status_code == 307
+    assert resposta.headers["location"] == "/monitor"
+
+
+def test_cors_recusa_origem_nao_autorizada(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.options("/api/v1/chat", headers={
+            "Origin": "https://origem-nao-autorizada.invalid",
+            "Access-Control-Request-Method": "POST",
+        })
+    assert resposta.status_code == 400
+    assert "access-control-allow-origin" not in resposta.headers
