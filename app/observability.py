@@ -11,6 +11,8 @@ import logging
 import os
 import re
 from contextvars import ContextVar
+from contextlib import contextmanager
+from copy import deepcopy
 import time
 import uuid
 from datetime import datetime
@@ -36,7 +38,7 @@ _MODELO_FALLBACK = "openai/gpt-oss-120b"
 _logger = logging.getLogger(__name__)
 
 LIMITE_TURNOS = 50
-LIMITE_P95_MS = 8_000
+LIMITE_P95_MS = 25_000
 LIMITE_TAXA_ERRO = 0.05
 
 _lock = threading.Lock()
@@ -45,6 +47,7 @@ _em_andamento = 0
 _turnos: list[dict[str, Any]] = []
 _chamadas: list[dict[str, Any]] = []
 _abertos: dict[str, float] = {}
+_etapas_por_turno: dict[str, list[dict[str, Any]]] = {}
 _runs: dict[str, dict[str, Any]] = {}
 _erros_modelo: list[dict[str, Any]] = []
 _falhas_primarias: dict[tuple, dict[str, Any]] = {}
@@ -244,16 +247,66 @@ def _turno_da_thread() -> str | None:
     return _turno_atual.get()
 
 
+@contextmanager
+def medir_etapa(agente: str):
+    """Mede o nó completo, incluindo ferramentas e todas as chamadas de modelo."""
+    turno_id = _turno_da_thread()
+    with _lock:
+        inicio_turno = _abertos.get(turno_id)
+    if inicio_turno is None:
+        yield
+        return
+
+    inicio = time.perf_counter()
+    etapa = {
+        "agente": agente,
+        "inicio_em": datetime.now(_FUSO).isoformat(timespec="milliseconds"),
+        "inicio_ms": round((inicio - inicio_turno) * 1000, 3),
+        "status": "ok",
+    }
+    with _lock:
+        etapas = _etapas_por_turno.setdefault(turno_id, [])
+        etapa["ordem"] = len(etapas) + 1
+        etapas.append(etapa)
+    try:
+        yield
+    except BaseException:
+        etapa["status"] = "erro"
+        raise
+    finally:
+        fim = time.perf_counter()
+        with _lock:
+            etapa.update({
+                "fim_em": datetime.now(_FUSO).isoformat(timespec="milliseconds"),
+                "fim_ms": round((fim - inicio_turno) * 1000, 3),
+                "duracao_ms": round((fim - inicio) * 1000, 3),
+            })
+
+
+def _transicoes(etapas: list[dict]) -> list[dict]:
+    """Intervalos entre etapas sequenciais; não transforma sobreposição em espera."""
+    ordenadas = sorted(etapas, key=lambda etapa: etapa["ordem"])
+    return [
+        {
+            "de": anterior["agente"], "para": atual["agente"],
+            "ordem_de": anterior["ordem"], "ordem_para": atual["ordem"],
+            "intervalo_ms": round(atual["inicio_ms"] - anterior["fim_ms"], 3),
+        }
+        for anterior, atual in zip(ordenadas, ordenadas[1:])
+        if "fim_ms" in anterior and atual["inicio_ms"] >= anterior["fim_ms"]
+    ]
+
+
 def ligar_coleta() -> None:
     """Põe o coletor nos três modelos, uma vez por processo."""
     global _ligado
     if _ligado:
         return
-    from app.llms import llm_chatgpt, llm_rapido
+    from app.llms import llm_chatgpt, llm_groq, llm_rapido
 
     for modelo in (
             llm_chatgpt,
-            # llm_groq,
+            llm_groq,
             llm_rapido
         ):
         if modelo is None:
@@ -272,6 +325,7 @@ def abrir_turno() -> str:
         global _em_andamento
         _em_andamento += 1
         _abertos[turno_id] = time.perf_counter()
+        _etapas_por_turno[turno_id] = []
     return turno_id
 
 
@@ -284,10 +338,12 @@ def fechar_turno(turno_id: str, session_id: str, rota: str, status: str) -> None
         global _em_andamento
         _em_andamento = max(0, _em_andamento - 1)
         do_turno = [c for c in _chamadas if c["turno_id"] == turno_id]
+        etapas = _etapas_por_turno.pop(turno_id, [])
         for chave in [c for c in _falhas_primarias if c[0] == turno_id]:
             _falhas_primarias.pop(chave, None)
         _turnos.append({
             "id": turno_id,
+            "turno_id": turno_id,
             "hora": _agora_local(),
             "session_id": session_id,
             "latencia_ms": int((time.perf_counter() - inicio) * 1000),
@@ -295,6 +351,8 @@ def fechar_turno(turno_id: str, session_id: str, rota: str, status: str) -> None
             "status": status,
             "tokens_total": sum(c["tokens_entrada"] + c["tokens_saida"] for c in do_turno),
             "custo_usd": sum(c["custo_usd"] for c in do_turno),
+            "etapas": deepcopy(etapas),
+            "transicoes": _transicoes(etapas),
         })
         while len(_turnos) > LIMITE_TURNOS:
             antigo = _turnos.pop(0)
@@ -327,7 +385,7 @@ def listar_erros_modelo() -> list[dict[str, Any]]:
 def listar_turnos() -> list[dict[str, Any]]:
     with _lock:
         return [
-            {chave: valor for chave, valor in turno.items() if chave != "id"}
+            deepcopy({chave: valor for chave, valor in turno.items() if chave != "id"})
             for turno in _turnos
         ]
 

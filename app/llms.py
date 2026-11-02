@@ -9,22 +9,22 @@ llm_chatgpt = ChatOpenAI(
    api_key=CHATGPT_API_KEY,
 ) if CHATGPT_API_KEY else None
 
-# llm_groq = ChatGroq(
-#    model="openai/gpt-oss-120b",
-#    temperature=0.7,
-#    api_key=GROQ_API_KEY
+llm_groq = ChatGroq(
+   model="openai/gpt-oss-120b",
+   temperature=0.7,
+   api_key=GROQ_API_KEY
+)
+
+llm_especialista = llm_chatgpt.with_fallbacks([llm_groq])
+
+# llm_rapido = ChatOpenAI(
+#    model="gpt-6-luna",
+#    reasoning={"effort": "none"},
+#    api_key=CHATGPT_API_KEY,
 # )
 
-llm_especialista = llm_chatgpt.with_fallbacks([llm_chatgpt])
-
-llm_rapido = ChatOpenAI(
-   model="gpt-6-luna",
-   reasoning={"effort": "none"},
-   api_key=CHATGPT_API_KEY,
-) if CHATGPT_API_KEY else None
-
-# llm_rapido = ChatGroq(
-#    model="openai/gpt-oss-120b",
-#    temperature=0.0,
-#   api_key=GROQ_API_KEY
-# )
+llm_rapido = ChatGroq(
+   model="openai/gpt-oss-120b",
+   temperature=0.0,
+   api_key=GROQ_API_KEY
+)

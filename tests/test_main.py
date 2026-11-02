@@ -1,6 +1,5 @@
 import importlib
 import sys
-from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 import pytest
@@ -23,7 +22,6 @@ def main_module():
 
     config_module = ModuleType("app.config")
     config_module.validar_config = MagicMock(side_effect=lambda: list(problemas))
-    config_module.FRONTEND_DIR = Path("frontend-inexistente")
 
     chat_module = ModuleType("app.routes.chat")
     chat_module.router = _fake_router("/api/v1/chat")
@@ -80,11 +78,12 @@ def test_health_responde_ok(main_module):
 def test_monitor_retorna_dados_antes_dos_arquivos_estaticos(main_module):
     module, _, _ = main_module
     with TestClient(module.app) as client:
-        resposta = client.get("/monitor")
+        resposta = client.get("/api/v1/monitor")
     assert resposta.status_code == 200
     assert resposta.headers["content-type"].startswith("application/json")
     assert set(resposta.json()) == {
-        "slo", "resumo", "serie_latencia", "serie_custo", "por_modelo", "por_rota", "turnos", "erros_modelo"
+        "slo", "resumo", "serie_latencia", "serie_custo", "por_modelo", "por_rota", "turnos", "erros_modelo",
+        "por_agente", "por_transicao",
     }
 
 def test_rota_inexistente_retorna_404(main_module):
@@ -145,20 +144,21 @@ def test_cors_responde_preflight(main_module):
 
 
 @pytest.mark.parametrize("caminho,conteudo", [
-    ("/", "console — assistente"),
-    ("/index.html", "console — assistente"),
-    ("/monitor.html", "monitoramento"),
-    ("/monitor2", "Resumo do monitor"),
+    ("/", "Resumo do monitor"),
+    ("/monitor", "Resumo do monitor"),
     ("/monitor2.html", "Resumo do monitor"),
-    ("/perfil.html", "perfil"),
-    ("/app.js", "/api/v1/chat"),
-    ("/style.css", ".console"),
-    ("/perfil.js", "/perfil"),
-    ("/perfil.css", ".restricoes__add"),
 ])
-def test_frontend_e_arquivos_estaticos(main_module, caminho, conteudo):
+def test_monitor_principal_e_servido(main_module, caminho, conteudo):
     module, _, _ = main_module
     with TestClient(module.app) as client:
         resposta = client.get(caminho)
     assert resposta.status_code == 200
     assert conteudo in resposta.text
+
+
+def test_raiz_redireciona_para_monitor(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.get("/", follow_redirects=False)
+    assert resposta.status_code == 307
+    assert resposta.headers["location"] == "/monitor"

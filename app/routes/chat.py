@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.graph import executar_fluxo
 from app.schemas import ChatRequest, ChatResponse
-from app.observabilidade import abrir_turno, fechar_turno, status_do_estado, rota_do_estado
+from app.observability import abrir_turno, fechar_turno, status_do_estado, rota_do_estado
 
 router = APIRouter(tags=["chat"])
 

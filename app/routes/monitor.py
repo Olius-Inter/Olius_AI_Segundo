@@ -10,7 +10,7 @@ import math
 
 from fastapi import APIRouter
 
-from app.observabilidade import (
+from app.observability import (
     LIMITE_P95_MS,
     LIMITE_TAXA_ERRO,
     listar_chamadas,
@@ -22,7 +22,7 @@ from app.observabilidade import (
 router = APIRouter(tags=["monitor"])
 
 
-def _percentil_95(valores: list[int]) -> int:
+def _percentil_95(valores: list[float]) -> float:
     """Nearest-rank: o menor valor que cobre 95% das amostras, já ordenadas."""
     if not valores:
         return 0
@@ -94,6 +94,32 @@ def montar_painel() -> dict:
         })
     por_rota.sort(key=lambda linha: linha["turnos"], reverse=True)
 
+    etapas = [etapa for turno in turnos for etapa in turno.get("etapas", []) if "duracao_ms" in etapa]
+    por_agente = []
+    for agente, itens in _agrupar(etapas, "agente").items():
+        duracoes = [item["duracao_ms"] for item in itens]
+        por_agente.append({
+            "agente": agente, "execucoes": len(itens),
+            "erros": sum(item["status"] == "erro" for item in itens),
+            "duracao_media_ms": round(_media(duracoes), 3),
+            "duracao_p95_ms": _percentil_95(duracoes),
+        })
+    por_agente.sort(key=lambda linha: linha["duracao_media_ms"], reverse=True)
+
+    grupos_transicoes = {}
+    for turno in turnos:
+        for transicao in turno.get("transicoes", []):
+            chave = (transicao["de"], transicao["para"])
+            grupos_transicoes.setdefault(chave, []).append(transicao["intervalo_ms"])
+    por_transicao = [
+        {
+            "de": de, "para": para, "ocorrencias": len(intervalos),
+            "intervalo_medio_ms": round(_media(intervalos), 3),
+            "intervalo_p95_ms": _percentil_95(intervalos),
+        }
+        for (de, para), intervalos in sorted(grupos_transicoes.items())
+    ]
+
     custo_acumulado = 0.0
     serie_custo = []
     for turno in turnos:
@@ -131,13 +157,15 @@ def montar_painel() -> dict:
         "erros_modelo": listar_erros_modelo(),
         "por_modelo": por_modelo,
         "por_rota": por_rota,
+        "por_agente": por_agente,
+        "por_transicao": por_transicao,
         "turnos": [
             {**t, "custo_usd": round(t["custo_usd"], 6)} for t in turnos
         ],
     }
 
 
-@router.get("/monitor")
+@router.get("/api/v1/monitor")
 def painel() -> dict:
     """Números do processo atual. Reiniciar o servidor zera o registro."""
     return montar_painel()

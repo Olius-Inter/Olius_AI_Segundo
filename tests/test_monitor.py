@@ -9,14 +9,14 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, LLMResult
 
-from app import observabilidade as obs
+from app import observability as obs
 from app.routes.monitor import montar_painel
 from app.schemas import ChatRequest
 
 
 @pytest.fixture(autouse=True)
 def registros_isolados(monkeypatch):
-    for nome, valor in (("_turnos", []), ("_chamadas", []), ("_abertos", {}), ("_runs", {}), ("_erros_modelo", []), ("_falhas_primarias", {}), ("_em_andamento", 0)):
+    for nome, valor in (("_turnos", []), ("_chamadas", []), ("_abertos", {}), ("_etapas_por_turno", {}), ("_runs", {}), ("_erros_modelo", []), ("_falhas_primarias", {}), ("_em_andamento", 0)):
         monkeypatch.setattr(obs, nome, valor)
     monkeypatch.setattr(obs, "ligar_coleta", lambda: None)
     token = obs._turno_atual.set(None)
@@ -31,6 +31,113 @@ def test_monitor_vazio():
     assert painel["resumo"]["slo_ok"] is True
     assert painel["serie_latencia"] == []
     assert painel["por_modelo"] == []
+    assert painel["por_agente"] == []
+    assert painel["por_transicao"] == []
+
+
+def test_duracao_por_etapa_e_intervalo_entre_agentes(monkeypatch):
+    tempos = iter([0, 1, 3, 3.05, 5, 5.1])
+    monkeypatch.setattr(obs.time, "perf_counter", lambda: next(tempos))
+    turno = obs.abrir_turno()
+    with obs.medir_etapa("router"):
+        pass
+    with obs.medir_etapa("oil_advisor"):
+        pass
+    obs.fechar_turno(turno, "sessao", "oil_advisor", "ok")
+    painel = montar_painel()
+    registro = painel["turnos"][0]
+    assert registro["turno_id"] == turno
+    assert [e["duracao_ms"] for e in registro["etapas"]] == [2000, 1950]
+    assert registro["etapas"][1]["inicio_ms"] == 3050
+    assert registro["etapas"][1]["fim_ms"] == 5000
+    assert registro["etapas"][0]["inicio_em"].endswith("-03:00")
+    assert registro["transicoes"] == [{
+        "de": "router", "para": "oil_advisor", "ordem_de": 1, "ordem_para": 2, "intervalo_ms": 50,
+    }]
+    assert painel["por_agente"][0]["duracao_media_ms"] == 2000
+    assert painel["por_transicao"][0]["intervalo_p95_ms"] == 50
+    registro["etapas"][0]["agente"] = "alterado"
+    assert obs.listar_turnos()[0]["etapas"][0]["agente"] == "router"
+    assert obs._etapas_por_turno == {}
+
+
+def test_etapa_com_falha_preserva_medicao_e_excecao():
+    turno = obs.abrir_turno()
+    with pytest.raises(ValueError, match="falha"):
+        with obs.medir_etapa("faq"):
+            raise ValueError("falha")
+    obs.fechar_turno(turno, "sessao", "faq", "erro")
+    painel = montar_painel()
+    etapa = painel["turnos"][0]["etapas"][0]
+    assert etapa["status"] == "erro"
+    assert etapa["duracao_ms"] >= 0
+    assert painel["por_agente"][0]["erros"] == 1
+
+
+def test_etapas_simultaneas_de_turnos_diferentes_nao_se_misturam():
+    import asyncio
+    from app.agents_metrics import instrumentar_no
+
+    async def teste():
+        primeira = asyncio.Event()
+        segunda = asyncio.Event()
+
+        async def trabalho_a(estado):
+            primeira.set()
+            await segunda.wait()
+            return estado
+
+        async def trabalho_b(estado):
+            await primeira.wait()
+            segunda.set()
+            return estado
+
+        async def executar(nome, trabalho):
+            turno = obs.abrir_turno()
+            no = instrumentar_no(nome, trabalho)
+            assert await no.ainvoke({"valor": nome}) == {"valor": nome}
+            obs.fechar_turno(turno, nome, nome, "ok")
+
+        await asyncio.gather(executar("router", trabalho_a), executar("faq", trabalho_b))
+
+    asyncio.run(teste())
+    registros = {t["session_id"]: t for t in obs.listar_turnos()}
+    assert [e["agente"] for e in registros["router"]["etapas"]] == ["router"]
+    assert [e["agente"] for e in registros["faq"]["etapas"]] == ["faq"]
+    assert obs._etapas_por_turno == {}
+
+
+def test_wrapper_sincrono_preserva_resultado_e_configuracao():
+    from app.agents_metrics import instrumentar_no
+
+    def trabalho(estado, config):
+        return {"valor": estado["valor"], "usuario": config["configurable"]["user_id"]}
+
+    turno = obs.abrir_turno()
+    no = instrumentar_no("faq", trabalho)
+    assert no.invoke({"valor": 7}, config={"configurable": {"user_id": "u1"}}) == {"valor": 7, "usuario": "u1"}
+    obs.fechar_turno(turno, "sessao", "faq", "ok")
+    assert obs.listar_turnos()[0]["etapas"][0]["agente"] == "faq"
+
+
+def test_sobreposicao_nao_e_contada_como_intervalo():
+    assert obs._transicoes([
+        {"agente": "a", "ordem": 1, "inicio_ms": 0, "fim_ms": 100},
+        {"agente": "b", "ordem": 2, "inicio_ms": 50, "fim_ms": 150},
+    ]) == []
+
+
+def test_retencao_das_etapas_acompanha_os_ultimos_turnos():
+    for indice in range(obs.LIMITE_TURNOS + 1):
+        turno = obs.abrir_turno()
+        with obs.medir_etapa("faq"):
+            pass
+        obs.fechar_turno(turno, str(indice), "faq", "ok")
+    painel = montar_painel()
+    assert len(painel["turnos"]) == obs.LIMITE_TURNOS
+    assert painel["turnos"][0]["session_id"] == "1"
+    assert painel["por_agente"][0]["execucoes"] == obs.LIMITE_TURNOS
+    assert obs._etapas_por_turno == {}
 
 
 def test_coleta_tokens_custo_e_latencia(monkeypatch):

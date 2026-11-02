@@ -7,6 +7,7 @@ from langchain_core.messages import RemoveMessage
 from app.guardrail import guardrail_entrada, guardrail_saida, anonimizar_entrada
 from app.memory import iniciar_sessao, salvar_mensagem, encerrar_sessao
 from app.agents import AGENTS
+from app.agents_metrics import instrumentar_no
 import asyncio
 
 faq_app = AGENTS["faq"]
@@ -138,15 +139,15 @@ def decidir_pos_guardrail_entrada(estado: Estado) -> str:
 
 grafo = StateGraph(Estado)
 
-grafo.add_node("guardrail_entrada", no_guardrail_entrada)
-grafo.add_node("router", router_node)
-grafo.add_node("oil_advisor", oil_advisor_app)
-grafo.add_node("routes_maps", routes_maps_app)
-grafo.add_node("ranking_sustainable", ranking_sustainable_app)
-grafo.add_node("business_analyst", business_analyst_app)
-grafo.add_node("faq", faq_app)
-grafo.add_node("orchestrator", orchestrator_node)
-grafo.add_node("guardrail_saida", no_guardrail_saida)
+grafo.add_node("guardrail_entrada", instrumentar_no("guardrail_entrada", no_guardrail_entrada))
+grafo.add_node("router", instrumentar_no("router", router_node))
+grafo.add_node("oil_advisor", instrumentar_no("oil_advisor", oil_advisor_app))
+grafo.add_node("routes_maps", instrumentar_no("routes_maps", routes_maps_app))
+grafo.add_node("ranking_sustainable", instrumentar_no("ranking_sustainable", ranking_sustainable_app))
+grafo.add_node("business_analyst", instrumentar_no("business_analyst", business_analyst_app))
+grafo.add_node("faq", instrumentar_no("faq", faq_app))
+grafo.add_node("orchestrator", instrumentar_no("orchestrator", orchestrator_node))
+grafo.add_node("guardrail_saida", instrumentar_no("guardrail_saida", no_guardrail_saida))
 
 grafo.set_entry_point("guardrail_entrada")
 
