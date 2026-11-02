@@ -6,6 +6,7 @@ import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from app.routes.monitor import router as monitor_router
+from app.security import exigir_admin, UsuarioAutenticado
 
 def _fake_router(path):
     router = APIRouter()
@@ -47,6 +48,7 @@ def main_module():
     }):
         sys.modules.pop("app.main", None)
         module = importlib.import_module("app.main")
+        module.app.dependency_overrides[exigir_admin] = lambda: UsuarioAutenticado(user_id="00000000-0000-0000-0000-000000000001", session_id="00000000-0000-0000-0000-000000000002", user_type="ADMIN")
         try:
             yield module, config_module, problemas
         finally:

@@ -118,7 +118,7 @@ def _julgar_jev(pergunta, resposta, evidencia, id_resposta=None):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(pedido, timeout=30) as resp:
+        with urllib.request.urlopen(pedido, timeout=10) as resp:
             dados = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         return _publicar(FRASE_SEGURA, f"erro http {exc.code}", resposta, id_resposta)

@@ -29,11 +29,18 @@ TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY")
 OBRIGATORIAS = {
     "CHATGPT_API_KEY": CHATGPT_API_KEY,
     "GROQ_API_KEY": GROQ_API_KEY,
+    "MONGODB_URI": MONGODB_URI,
+    "DATABASE_URL": DATABASE_URL,
 }
 
 def validar_config() -> list[str]:
     """Devolve a lista de problemas de configuração (retorno vazio = tudo certo)."""
     problemas = []
+    from app.security import auth_url
+    try:
+        auth_url()
+    except ValueError as exc:
+        problemas.append(str(exc))
     if "*" in CORS_ORIGINS:
         problemas.append("CORS_ORIGINS deve listar origens explícitas, sem '*'.")
     for nome, valor in OBRIGATORIAS.items():

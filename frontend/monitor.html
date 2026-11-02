@@ -63,6 +63,11 @@
       <div><p class="sobretitulo">OLIVIA / ASSISTENTE</p><h1>Resumo do monitor</h1><p class="sub">Uma visão clara da operação do seu assistente.</p></div>
       <div class="acoes"><button type="button" id="atualizar">Atualizar</button></div>
     </header>
+    <form id="acesso-monitor" class="acoes">
+      <label for="token-monitor">Acesso administrativo</label>
+      <input id="token-monitor" type="password" autocomplete="off" maxlength="8192" placeholder="Token de acesso" required>
+      <button type="submit">Acessar</button>
+    </form>
     <section class="resumo" aria-label="Resumo da operação">
       <div class="estado"><span class="ponto" id="ponto" aria-hidden="true"></span><div><strong id="estado">Conectando à API…</strong><p id="uptime">Aguardando leitura</p></div></div>
       <div class="turnos-resumo"><strong id="total-turnos">— turnos</strong><p id="andamento">— em andamento</p></div>
@@ -167,7 +172,7 @@
     function renderTurnoInteragentes() {
       const turno = turnosInteragentes.find(t => t.turno_id === seletorTurno.value);
       document.getElementById("identificacao-turno").textContent = turno
-        ? `Turno: ${turno.turno_id} · Sessão: ${turno.session_id} · Status: ${turno.status}` : "";
+        ? `Turno: ${turno.turno_id} · Status: ${turno.status}` : "";
       document.getElementById("etapas-turno").innerHTML = tabela(
         ["Ordem", "Agente", "Início no turno (ms)", "Fim no turno (ms)", "Duração (ms)", "Execução"],
         (turno?.etapas || []).map(e => [
@@ -413,7 +418,7 @@
       );
 
       document.getElementById("tabela-turnos").innerHTML = tabela(
-        ["hora", "latência", "rota", "status", "tokens", "custo", "sessão"],
+        ["hora", "latência", "rota", "status", "tokens", "custo", "referência"],
         dados.turnos.map((t) => [
           { texto: t.hora },
           { texto: ms(t.latencia_ms) },
@@ -421,7 +426,7 @@
           { html: tagStatus(t.status) },
           { texto: inteiro(t.tokens_total) },
           { texto: usd(t.custo_usd) },
-          { texto: t.session_id, classe: "sessao" },
+          { texto: t.turno_id, classe: "sessao" },
         ]),
         "Nenhum turno neste processo.",
       );
@@ -453,18 +458,26 @@
     }
 
 
+    let tokenMonitor = "";
     let ultimosDados = null;
     let carregando = false;
     const botao = document.getElementById("atualizar");
     async function carregar() {
-      if (carregando) return;
+      if (carregando || !tokenMonitor) return;
       carregando = true;
       botao.disabled = true;
       botao.textContent = "Atualizando…";
       try {
-        const resposta = await fetch("/api/v1/monitor", { cache: "no-store", signal: AbortSignal.timeout(10000) });
+        const resposta = await fetch("/api/v1/monitor", { cache: "no-store", headers: { Authorization: "Bearer " + tokenMonitor }, signal: AbortSignal.timeout(10000) });
+        if (resposta.status === 401 || resposta.status === 403) {
+          tokenMonitor = "";
+          ultimosDados = null;
+          document.querySelectorAll(".numeros, .principal, .interagentes, .inferior").forEach(el => el.hidden = true);
+          throw new Error("Acesso negado. Informe um token administrativo válido.");
+        }
         if (!resposta.ok) throw new Error("HTTP " + resposta.status);
         const dados = await resposta.json();
+        document.querySelectorAll(".numeros, .principal, .interagentes, .inferior").forEach(el => el.hidden = false);
         render(dados);
         ultimosDados = dados;
         aviso.hidden = true;
@@ -482,6 +495,12 @@
         botao.textContent = "Atualizar";
       }
     }
+    document.getElementById("acesso-monitor").addEventListener("submit", event => {
+      event.preventDefault();
+      tokenMonitor = document.getElementById("token-monitor").value.trim();
+      document.getElementById("token-monitor").value = "";
+      carregar();
+    });
     botao.addEventListener("click", carregar);
     carregar();
     setInterval(carregar, 4000);

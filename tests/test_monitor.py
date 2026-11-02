@@ -3,7 +3,10 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
+import asyncio
+from contextlib import asynccontextmanager
+from app.security import UsuarioAutenticado
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -135,7 +138,8 @@ def test_retencao_das_etapas_acompanha_os_ultimos_turnos():
         obs.fechar_turno(turno, str(indice), "faq", "ok")
     painel = montar_painel()
     assert len(painel["turnos"]) == obs.LIMITE_TURNOS
-    assert painel["turnos"][0]["session_id"] == "1"
+    assert "session_id" not in painel["turnos"][0]
+    assert obs.listar_turnos()[0]["session_id"] == "1"
     assert painel["por_agente"][0]["execucoes"] == obs.LIMITE_TURNOS
     assert obs._etapas_por_turno == {}
 
@@ -186,17 +190,22 @@ def test_erros_bloqueios_p95_e_limite_de_historico():
 ])
 def test_chat_registra_turno_mesmo_com_excecao(monkeypatch, resultado, status, rota):
     graph = ModuleType("app.graph")
-    graph.executar_fluxo = Mock(side_effect=resultado) if isinstance(resultado, Exception) else Mock(return_value=resultado)
+    graph.executar_fluxo_async = AsyncMock(side_effect=resultado) if isinstance(resultado, Exception) else AsyncMock(return_value=resultado)
     monkeypatch.setitem(sys.modules, "app.graph", graph)
     spec = importlib.util.spec_from_file_location("chat_monitor_test", Path(__file__).parents[1] / "app/routes/chat.py")
     chat = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(chat)
-    pedido = ChatRequest(pergunta="Teste", session_id="sessao", user_id="usuario")
+    @asynccontextmanager
+    async def permitida(user_id):
+        yield
+    monkeypatch.setattr(chat, "operacao", permitida)
+    pedido = ChatRequest(pergunta="Teste", session_id="00000000-0000-0000-0000-000000000001")
+    usuario = UsuarioAutenticado(user_id="00000000-0000-0000-0000-000000000002", session_id="00000000-0000-0000-0000-000000000003", user_type="CITIZENS")
     if status == "erro":
         with pytest.raises(RuntimeError, match="erro simulado"):
-            chat.conversar(pedido)
+            asyncio.run(chat.conversar(pedido, usuario))
     else:
-        assert chat.conversar(pedido).resposta == resultado[0]
+        assert asyncio.run(chat.conversar(pedido, usuario)).resposta == resultado[0]
     assert obs.listar_turnos()[0]["status"] == status
     assert obs.listar_turnos()[0]["rota"] == rota
     assert obs.situacao()["em_andamento"] == 0

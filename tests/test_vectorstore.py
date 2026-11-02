@@ -37,7 +37,7 @@ def test_cliente_lazy_com_chave_existente_e_dimensoes_corretas(vectorstore):
     factory.assert_not_called()
     assert len(module.gerar_embedding("Resumo")) == 768
     assert module.gerar_embeddings_batch(["FAQ"]) == [[0.2] * 768]
-    factory.assert_called_once_with(model="text-embedding-3-small", api_key="test-chatgpt-key", dimensions=768)
+    factory.assert_called_once_with(model="text-embedding-3-small", api_key="test-chatgpt-key", dimensions=768, request_timeout=15, max_retries=0)
     embeddings.embed_query.assert_called_once_with("Resumo")
     embeddings.embed_documents.assert_called_once_with(["FAQ"])
     qdrant.create_collection.assert_called_once()
