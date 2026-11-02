@@ -1,4 +1,4 @@
-from app.prompts.persona_olius import SYSTEM_PERSON
+from .persona_olius import SYSTEM_PERSON
 
 ROUTER = f"""
 {SYSTEM_PERSON}

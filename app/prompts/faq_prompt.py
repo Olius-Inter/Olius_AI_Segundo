@@ -1,4 +1,4 @@
-from app.prompts.persona_olius import SYSTEM_PERSON
+from .persona_olius import SYSTEM_PERSON
 
 FAQ_PROMPT = f"""
 {SYSTEM_PERSON}
