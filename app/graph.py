@@ -7,6 +7,8 @@ from langchain_core.messages import RemoveMessage
 from app.guardrail import guardrail_entrada, guardrail_saida, anonimizar_entrada
 from app.memory import iniciar_sessao, salvar_mensagem, encerrar_sessao
 from app.agents import AGENTS
+from app.agents_metrics import instrumentar_no
+import asyncio
 from app.judge import no_juiz
 
 faq_app = AGENTS["faq"]
@@ -98,8 +100,8 @@ def router_node(estado: Estado, config: RunnableConfig) -> dict:
 def orchestrator_node(estado: Estado) -> dict:
     ultima_especialista = ""
     for mensagem in reversed(estado["messages"]):
-        if mensagem.type == "ai" and mensagem.content:
-            ultima_especialista = mensagem.content
+        if mensagem.type == "ai" and mensagem.text:
+            ultima_especialista = mensagem.text
             break
     
     saida = orchestrator_app.invoke({
@@ -138,16 +140,16 @@ def decidir_pos_guardrail_entrada(estado: Estado) -> str:
 
 grafo = StateGraph(Estado)
 
-grafo.add_node("guardrail_entrada", no_guardrail_entrada)
-grafo.add_node("router", router_node)
-grafo.add_node("oil_advisor", oil_advisor_app)
-grafo.add_node("routes_maps", routes_maps_app)
-grafo.add_node("ranking_sustainable", ranking_sustainable_app)
-grafo.add_node("business_analyst", business_analyst_app)
-grafo.add_node("faq", faq_app)
-grafo.add_node("orchestrator", orchestrator_node)
-grafo.add_node("guardrail_saida", no_guardrail_saida)
-grafo.add_node("juiz", no_juiz)
+grafo.add_node("guardrail_entrada", instrumentar_no("guardrail_entrada", no_guardrail_entrada))
+grafo.add_node("router", instrumentar_no("router", router_node))
+grafo.add_node("oil_advisor", instrumentar_no("oil_advisor", oil_advisor_app))
+grafo.add_node("routes_maps", instrumentar_no("routes_maps", routes_maps_app))
+grafo.add_node("ranking_sustainable", instrumentar_no("ranking_sustainable", ranking_sustainable_app))
+grafo.add_node("business_analyst", instrumentar_no("business_analyst", business_analyst_app))
+grafo.add_node("faq", instrumentar_no("faq", faq_app))
+grafo.add_node("orchestrator", instrumentar_no("orchestrator", orchestrator_node))
+grafo.add_node("guardrail_saida", instrumentar_no("guardrail_saida", no_guardrail_saida))
+grafo.add_node("juiz", instrumentar_no("juiz", no_juiz))
 
 grafo.set_entry_point("guardrail_entrada")
 
@@ -194,10 +196,17 @@ def executar_fluxo(pergunta_usuario: str, session_id_user: str, user_id: str) ->
         "user_id": user_id
     }
 
-    estado_final = fluxo_agentes.invoke(
-        estado_inicial,
-        config={"configurable": {"thread_id": session_id_user, "user_id": user_id}},
-    ) 
+    estado_final = asyncio.run(
+        fluxo_agentes.ainvoke(
+            estado_inicial,
+            config={
+                "configurable": {
+                    "thread_id": session_id_user,
+                    "user_id": user_id,
+                }
+            },
+        )
+    )
     
     return [
         estado_final["messages"][-1].text,

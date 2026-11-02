@@ -30,6 +30,7 @@ Funções
 """
 
 import uuid
+from functools import lru_cache
 from datetime import datetime, timezone
 from app.llms import llm_rapido
 from pymongo import MongoClient
@@ -37,13 +38,26 @@ from qdrant_client import models
 from app.config import MONGODB_URI
 from app.vectorstore import qdrant, gerar_embedding, COLLECTION_MEMORIA
 
-_mongo = MongoClient(MONGODB_URI)
-db = _mongo["olivia-olius"]
-col_sessoes = db["sessoes"]
+@lru_cache(maxsize=1)
+def _obter_colecao_sessoes():
+    """Conecta sob demanda; importar a API não depende do DNS do MongoDB."""
+    if not MONGODB_URI:
+        raise RuntimeError("MONGODB_URI não configurada para salvar as sessões.")
+    mongo = MongoClient(
+        MONGODB_URI,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=10000,
+    )
+    try:
+        colecao = mongo["olivia-olius"]["sessoes"]
+        for campo in ("session_id", "user_id", "iniciada_em"):
+            colecao.create_index(campo)
+    except Exception:
+        mongo.close()
+        raise
+    return colecao
 
-col_sessoes.create_index("session_id")
-col_sessoes.create_index("user_id")
-col_sessoes.create_index("iniciada_em")
 
 _PROMPT_RESUMO = """\
 Você é um assistente que resume conversas do escopo do projeto Olius.
@@ -75,7 +89,7 @@ def _gerar_resumo(mensagens: list[dict]) -> str:
     conversa = _formatar_conversa(mensagens)
     return llm_rapido.invoke(
         _PROMPT_RESUMO.format(conversa=conversa)
-    ).content.strip()
+    ).text.strip()
 
 
 def _doc_id_da_sessao(session_id: str) -> str | None:
@@ -83,7 +97,7 @@ def _doc_id_da_sessao(session_id: str) -> str | None:
     if doc_id:
         return doc_id
 
-    doc = col_sessoes.find_one(
+    doc = _obter_colecao_sessoes().find_one(
         {"session_id": session_id, "resumo": {"$in": ["", None]}},
         {"_id": 1},
         sort=[("iniciada_em", -1)],
@@ -102,7 +116,7 @@ def iniciar_sessao(session_id: str, user_id: str = "usuario_teste") -> None:
     doc_id = str(uuid.uuid4())
     agora = _agora()
 
-    col_sessoes.insert_one({
+    _obter_colecao_sessoes().insert_one({
         "_id": doc_id,
         "session_id": session_id,
         "user_id": user_id,
@@ -121,7 +135,7 @@ def salvar_mensagem(
     iniciar_sessao(session_id, user_id=user_id)
     doc_id = _doc_id_da_sessao(session_id)
 
-    col_sessoes.update_one(
+    _obter_colecao_sessoes().update_one(
         {"_id": doc_id},
         {
             "$push": {"mensagens": {"role": role, "content": content}},
@@ -136,7 +150,7 @@ def encerrar_sessao(session_id: str) -> str:
     if not doc_id:
         return ""
 
-    doc = col_sessoes.find_one({"_id": doc_id})
+    doc = _obter_colecao_sessoes().find_one({"_id": doc_id})
 
     if not doc or not doc.get("mensagens"):
         _sessoes_ativas.pop(session_id, None)
@@ -144,7 +158,7 @@ def encerrar_sessao(session_id: str) -> str:
 
     resumo = _gerar_resumo(doc["mensagens"])
 
-    col_sessoes.update_one(
+    _obter_colecao_sessoes().update_one(
         {"_id": doc_id},
         {"$set": {"resumo": resumo, "atualizada_em": _agora()}},
     )
@@ -201,7 +215,7 @@ def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[
 
     filtro = {"user_id": user_id, "resumo": {"$nin": ["", None]}}
     docs = (
-        col_sessoes
+        _obter_colecao_sessoes()
         .find(filtro, {"resumo": 1, "iniciada_em": 1})
         .sort("iniciada_em", -1)
         .limit(limite)
@@ -214,5 +228,5 @@ def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[
 
 
 def recuperar_mensagens(doc_id: str) -> list[dict]:
-    doc = col_sessoes.find_one({"_id": doc_id}, {"mensagens": 1})
+    doc = _obter_colecao_sessoes().find_one({"_id": doc_id}, {"mensagens": 1})
     return doc["mensagens"] if doc else []

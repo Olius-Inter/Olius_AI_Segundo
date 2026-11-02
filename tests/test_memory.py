@@ -60,7 +60,6 @@ def memory_module(monkeypatch):
     config_module.MONGODB_URI = "mongodb://test.invalid"
     config_module.QDRANT_URL = "https://qdrant.test.invalid"
     config_module.QDRANT_API_KEY = "test-key"
-    config_module.GEMINI_API_KEY = "test-key"
 
     qdrant = MagicMock(name="qdrant")
     vectorstore_module = ModuleType("app.vectorstore")
@@ -100,6 +99,30 @@ def test_agora_retorna_datetime_com_fuso_utc(memory_module):
     assert agora.tzinfo == timezone.utc
 
 
+def test_importacao_nao_conecta_ao_mongodb(memory_module):
+    memory_module.mongo_client.assert_not_called()
+    memory_module.collection.create_index.assert_not_called()
+
+
+def test_conexao_usa_timeout_e_reutiliza_colecao(memory_module):
+    primeira = memory_module.module._obter_colecao_sessoes()
+    assert memory_module.module._obter_colecao_sessoes() is primeira
+    memory_module.mongo_client.assert_called_once_with(
+        "mongodb://test.invalid", serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000, socketTimeoutMS=10000,
+    )
+    assert memory_module.collection.create_index.call_count == 3
+
+
+def test_falha_na_conexao_fecha_cliente_e_permite_nova_tentativa(memory_module):
+    memory_module.collection.create_index.side_effect = RuntimeError("Falha de rede")
+    with pytest.raises(RuntimeError, match="Falha de rede"):
+        memory_module.module._obter_colecao_sessoes()
+    memory_module.mongo_client.return_value.close.assert_called_once()
+    memory_module.collection.create_index.side_effect = None
+    assert memory_module.module._obter_colecao_sessoes() is memory_module.collection
+
+
 def test_formatar_conversa_junta_papeis_e_conteudos(memory_module):
     mensagens = [
         {"role": "usuario", "content": "Quero descartar óleo."},
@@ -113,7 +136,7 @@ def test_formatar_conversa_junta_papeis_e_conteudos(memory_module):
 
 
 def test_gerar_resumo_chama_llm_e_remove_espacos(memory_module):
-    memory_module.llm.invoke.return_value.content = "  Resumo da conversa.  "
+    memory_module.llm.invoke.return_value.text = "  Resumo da conversa.  "
 
     resumo = memory_module.module._gerar_resumo([
         {"role": "usuario", "content": "Olá"}
