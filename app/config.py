@@ -18,6 +18,12 @@ QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 GOOGLE_MAPS_API_URL = os.getenv("GOOGLE_MAPS_API_URL")
+CORS_ORIGINS = [
+    origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",") if origin.strip()
+]
 
 OBRIGATORIAS = {
     "CHATGPT_API_KEY": CHATGPT_API_KEY,
@@ -27,6 +33,8 @@ OBRIGATORIAS = {
 def validar_config() -> list[str]:
     """Devolve a lista de problemas de configuração (retorno vazio = tudo certo)."""
     problemas = []
+    if "*" in CORS_ORIGINS:
+        problemas.append("CORS_ORIGINS deve listar origens explícitas, sem '*'.")
     for nome, valor in OBRIGATORIAS.items():
         if not valor:
             problemas.append(f"Variável ausente no .env: {nome}")

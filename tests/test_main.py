@@ -22,6 +22,7 @@ def main_module():
 
     config_module = ModuleType("app.config")
     config_module.validar_config = MagicMock(side_effect=lambda: list(problemas))
+    config_module.CORS_ORIGINS = ["http://localhost:8000"]
 
     chat_module = ModuleType("app.routes.chat")
     chat_module.router = _fake_router("/api/v1/chat")
@@ -146,7 +147,7 @@ def test_cors_responde_preflight(main_module):
 @pytest.mark.parametrize("caminho,conteudo", [
     ("/", "Resumo do monitor"),
     ("/monitor", "Resumo do monitor"),
-    ("/monitor2.html", "Resumo do monitor"),
+    ("/monitor.html", "Resumo do monitor"),
 ])
 def test_monitor_principal_e_servido(main_module, caminho, conteudo):
     module, _, _ = main_module
@@ -162,3 +163,14 @@ def test_raiz_redireciona_para_monitor(main_module):
         resposta = client.get("/", follow_redirects=False)
     assert resposta.status_code == 307
     assert resposta.headers["location"] == "/monitor"
+
+
+def test_cors_recusa_origem_nao_autorizada(main_module):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        resposta = client.options("/api/v1/chat", headers={
+            "Origin": "https://origem-nao-autorizada.invalid",
+            "Access-Control-Request-Method": "POST",
+        })
+    assert resposta.status_code == 400
+    assert "access-control-allow-origin" not in resposta.headers

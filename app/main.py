@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from app.config import validar_config
+from app.config import validar_config, CORS_ORIGINS
 from app.routes import chat, sessions, monitor
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,10 +28,10 @@ app.include_router(monitor.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 @app.get("/health", tags=["infra"])

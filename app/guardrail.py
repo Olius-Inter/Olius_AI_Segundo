@@ -3,12 +3,9 @@ Verificações de segurança e compliance dos agentes do projeto Olius.
 ENTRADA → anonimizar → checar injeção → checar dados internos → classificar (LLM)
 SAÍDA → redigir PII → desanonimizar → revisar compliance (LLM)
 """
-import os, re, uuid
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+import re
+import uuid
 from app.llms import llm_rapido
-
-load_dotenv()
 
 # PII — Dados pessoais sensíveis (usar na entrada e saída)
 PII = [
@@ -121,7 +118,7 @@ def guardrail_entrada(mensagem_anonimizada):
     # Classificação semântica via LLM (ofensivo, perigoso, ilícito, político)
     resposta = llm_rapido.invoke(_PROMPT_CLASSIFICADOR.format(mensagem=mensagem_anonimizada)).text.strip()
 
-    categoria = "APROVADO"
+    categoria = None
     for linha in resposta.splitlines():
         if linha.strip().upper().startswith("CATEGORIA:"):
             categoria = linha.split(":", 1)[1].strip().upper()
@@ -130,6 +127,9 @@ def guardrail_entrada(mensagem_anonimizada):
     if categoria in _RESPOSTAS_BLOQUEIO:
         motivo, mensagem = _RESPOSTAS_BLOQUEIO[categoria]
         return _bloquear(motivo, mensagem)
+
+    if categoria != "APROVADO":
+        return _bloquear("classificacao_invalida", "Não foi possível validar a mensagem. Tente reformular a solicitação.")
 
     return _aprovado()
 
@@ -168,4 +168,7 @@ def guardrail_saida(resposta, mapa_pii, restaurar_pii=False):
     if "RESPOSTA:" in saida:
         resposta = saida.split("RESPOSTA:", 1)[1].strip() or resposta
 
+    # A revisão também pode gerar PII: confira novamente antes de entregar.
+    for tipo, padrao in PII:
+        resposta = re.sub(padrao, f"[{tipo} OMITIDO]", resposta)
     return _saida_ok(resposta)

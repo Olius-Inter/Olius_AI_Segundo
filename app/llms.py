@@ -15,13 +15,7 @@ llm_groq = ChatGroq(
    api_key=GROQ_API_KEY
 )
 
-llm_especialista = llm_chatgpt.with_fallbacks([llm_groq])
-
-# llm_rapido = ChatOpenAI(
-#    model="gpt-6-luna",
-#    reasoning={"effort": "none"},
-#    api_key=CHATGPT_API_KEY,
-# )
+llm_especialista = llm_chatgpt.with_fallbacks([llm_groq]) if llm_chatgpt else llm_groq
 
 llm_rapido = ChatGroq(
    model="openai/gpt-oss-120b",
