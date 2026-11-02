@@ -1,23 +1,20 @@
 from langchain.tools import tool
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from app.config import FAQ_PDF_PATH
-from app.vectorstore import obter_embeddings
+from app.vectorstore import qdrant, gerar_embedding, COLLECTION_FAQ
 
 @tool
 def faq_retriever(question: str) -> str:
-    """Busca no FAQ oficial os trechos mais relevantes para entender a pergunta."""
+    """Busca no FAQ oficial os trechos mais relevantes para responder a pergunta."""
+    vetor = gerar_embedding(question)
 
-    # Ler o PDF somente quando o FAQ for consultado, sem bloquear outros agentes.
-    docs = PyPDFLoader(FAQ_PDF_PATH).load()
+    resultados = qdrant.query_points(
+        collection_name=COLLECTION_FAQ,
+        query=vetor,
+        limit=6,
+    )
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=700,chunk_overlap=150)
-    chunks = splitter.split_documents(docs)
+    if not resultados.points:
+        return "Nenhum trecho relevante encontrado no FAQ."
 
-    embedding = obter_embeddings()
-
-    latent_space = FAISS.from_documents(chunks, embedding)
-
-    results = latent_space.similarity_search(question,k=6)
-    return results
+    return "\n\n".join(
+        ponto.payload["page_content"] for ponto in resultados.points
+    )

@@ -9,6 +9,7 @@ from app.memory import iniciar_sessao, salvar_mensagem, encerrar_sessao
 from app.agents import AGENTS
 from app.agents_metrics import instrumentar_no
 import asyncio
+from app.judge import no_juiz
 
 faq_app = AGENTS["faq"]
 oil_advisor_app = AGENTS["oil_advisor"]
@@ -148,6 +149,7 @@ grafo.add_node("business_analyst", instrumentar_no("business_analyst", business_
 grafo.add_node("faq", instrumentar_no("faq", faq_app))
 grafo.add_node("orchestrator", instrumentar_no("orchestrator", orchestrator_node))
 grafo.add_node("guardrail_saida", instrumentar_no("guardrail_saida", no_guardrail_saida))
+grafo.add_node("juiz", instrumentar_no("juiz", no_juiz))
 
 grafo.set_entry_point("guardrail_entrada")
 
@@ -175,8 +177,9 @@ grafo.add_edge("routes_maps", "orchestrator")
 grafo.add_edge("ranking_sustainable", "orchestrator")
 grafo.add_edge("business_analyst", "orchestrator")
 grafo.add_edge("orchestrator", "guardrail_saida")
-grafo.add_edge("guardrail_saida", END)
-grafo.add_edge("faq", END)
+grafo.add_edge("guardrail_saida", "juiz")
+grafo.add_edge("faq", "juiz")
+grafo.add_edge("juiz", END)
 
 memory = MemorySaver()
 fluxo_agentes = grafo.compile(checkpointer=memory)

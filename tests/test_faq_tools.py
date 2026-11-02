@@ -1,32 +1,65 @@
-import importlib.util
+"""Testes unitários de app.tools.faq_tools sem Qdrant ou embeddings reais."""
+
+import importlib
 import sys
-from pathlib import Path
-from types import ModuleType
-from unittest.mock import Mock
+from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock
+import pytest
 
-import langchain_community.document_loaders
-import langchain_community.vectorstores
-import langchain_text_splitters
+@pytest.fixture
+def faq_tools(monkeypatch):
+    """Importa app.tools.faq_tools com app.vectorstore substituído por um mock."""
+    vectorstore_module = ModuleType("app.vectorstore")
+    vectorstore_module.qdrant = MagicMock(name="qdrant")
+    vectorstore_module.gerar_embedding = MagicMock(
+        name="gerar_embedding", return_value=[0.1, 0.2, 0.3]
+    )
+    vectorstore_module.COLLECTION_FAQ = "faq_chunks"
+    monkeypatch.setitem(sys.modules, "app.vectorstore", vectorstore_module)
+    monkeypatch.delitem(sys.modules, "app.tools.faq_tools", raising=False)
+    return importlib.import_module("app.tools.faq_tools"), vectorstore_module
 
 
-def test_faq_carrega_pdf_e_reutiliza_embeddings_sob_demanda(monkeypatch):
-    config = ModuleType("app.config")
-    config.FAQ_PDF_PATH = Path("faq-teste.pdf")
-    vectors = ModuleType("app.vectorstore")
-    vectors.obter_embeddings = Mock()
-    monkeypatch.setitem(sys.modules, "app.config", config)
-    monkeypatch.setitem(sys.modules, "app.vectorstore", vectors)
-    loader, splitter, faiss = Mock(), Mock(), Mock()
-    monkeypatch.setattr(langchain_community.document_loaders, "PyPDFLoader", loader)
-    monkeypatch.setattr(langchain_text_splitters, "RecursiveCharacterTextSplitter", splitter)
-    monkeypatch.setattr(langchain_community.vectorstores, "FAISS", faiss)
-    faiss.from_documents.return_value.similarity_search.return_value = ["Trecho oficial"]
-    spec = importlib.util.spec_from_file_location("faq_under_test", Path(__file__).parents[1] / "app/tools/faq_tools.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    loader.assert_not_called()
-    assert module.faq_retriever.invoke({"question": "Como descartar?"}) == ["Trecho oficial"]
-    loader.assert_called_once_with(config.FAQ_PDF_PATH)
-    vectors.obter_embeddings.assert_called_once()
-    faiss.from_documents.assert_called_once_with(splitter.return_value.split_documents.return_value, vectors.obter_embeddings.return_value)
-    faiss.from_documents.return_value.similarity_search.assert_called_once_with("Como descartar?", k=6)
+def _pontos(*textos):
+    return SimpleNamespace(
+        points=[SimpleNamespace(payload={"page_content": t}) for t in textos]
+    )
+
+def test_faq_retriever_junta_trechos_encontrados(faq_tools):
+    modulo, vectorstore = faq_tools
+    vectorstore.qdrant.query_points.return_value = _pontos("trecho 1", "trecho 2")
+    resultado = modulo.faq_retriever.invoke({"question": "O que é o Olius?"})
+    assert resultado == "trecho 1\n\ntrecho 2"
+
+def test_faq_retriever_consulta_qdrant_com_embedding_da_pergunta(faq_tools):
+    modulo, vectorstore = faq_tools
+    vectorstore.qdrant.query_points.return_value = _pontos("trecho")
+    modulo.faq_retriever.invoke({"question": "Como descartar óleo?"})
+    vectorstore.gerar_embedding.assert_called_once_with("Como descartar óleo?")
+    vectorstore.qdrant.query_points.assert_called_once_with(
+        collection_name="faq_chunks",
+        query=[0.1, 0.2, 0.3],
+        limit=6,
+    )
+
+def test_faq_retriever_sem_resultados_informa_que_nao_encontrou(faq_tools):
+    modulo, vectorstore = faq_tools
+    vectorstore.qdrant.query_points.return_value = _pontos()
+    resultado = modulo.faq_retriever.invoke({"question": "pergunta sem resposta"})
+    assert resultado == "Nenhum trecho relevante encontrado no FAQ."
+
+def test_faq_retriever_com_um_unico_trecho_nao_adiciona_separador(faq_tools):
+    modulo, vectorstore = faq_tools
+    vectorstore.qdrant.query_points.return_value = _pontos("único")
+    assert modulo.faq_retriever.invoke({"question": "q"}) == "único"
+
+def test_faq_retriever_propaga_erro_do_qdrant(faq_tools):
+    modulo, vectorstore = faq_tools
+    vectorstore.qdrant.query_points.side_effect = ConnectionError("qdrant fora")
+    with pytest.raises(ConnectionError):
+        modulo.faq_retriever.invoke({"question": "q"})
+
+def test_faq_retriever_declara_nome_e_descricao_para_o_agente(faq_tools):
+    modulo, _ = faq_tools
+    assert modulo.faq_retriever.name == "faq_retriever"
+    assert "FAQ" in modulo.faq_retriever.description

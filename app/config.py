@@ -11,6 +11,7 @@ FAQ_PDF_PATH = DATA_DIR / "faq.pdf"
 load_dotenv(BASE_DIR / ".env")
 
 CHATGPT_API_KEY = os.getenv("CHATGPT_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 MONGODB_URI = os.getenv("MONGODB_URI")
@@ -24,9 +25,11 @@ CORS_ORIGINS = [
         "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
     ).split(",") if origin.strip()
 ]
+TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY")
 
 OBRIGATORIAS = {
     "CHATGPT_API_KEY": CHATGPT_API_KEY,
+    "GEMINI_API_KEY": GEMINI_API_KEY,
     "GROQ_API_KEY": GROQ_API_KEY,
 }
 
