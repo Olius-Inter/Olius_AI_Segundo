@@ -30,6 +30,7 @@ def graph_module():
         "ranking_sustainable": _fake_agent("Resposta sustentabilidade"),
         "router": _fake_agent("ROUTE=oil_advisor"),
         "orchestrator": _fake_agent("Resposta final revisada"),
+        "judge": _fake_agent("judge:apoiada"),
     }
 
     agents_module = ModuleType("app.agents")
@@ -75,7 +76,7 @@ def test_grafo_compila_e_tem_nos_esperados(graph_module):
     assert {
         "guardrail_entrada", "router", "oil_advisor", "routes_maps",
         "ranking_sustainable", "business_analyst", "faq", "orchestrator",
-        "guardrail_saida", "juiz",
+        "guardrail_saida", "judge",
     }.issubset(node_names)
 
 
@@ -195,7 +196,7 @@ def test_grafo_rota_faq_retorna_resposta_sem_orquestrador(graph_module):
     assert resposta == "Resposta FAQ"
     assert rota == "faq"
     assert "faq" in agentes
-    assert "juiz:apoiada" in agentes
+    assert "judge:apoiada" in agentes
     assert "orchestrator" not in agentes
 
 
