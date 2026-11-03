@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.maps_mcp import maps_session
 from app.tools.db import get_conn
+from app.limits import MAX_DESTINATIONS, MAPS_SECONDS
 from app.tools.discard_tools import serializar, usuario
 
 PASSO_RAIO = 50
@@ -24,9 +25,9 @@ class BuscarLocaisProximosArgs(BaseModel):
 
 
 class CalcularTemposDeslocamentoArgs(BaseModel):
-    cidade: str | None = Field(default=None, min_length=1, max_length=100, description="Consulta TODOS os PEVs aprovados desta cidade; sem limite de raio ou quantidade.")
+    cidade: str | None = Field(default=None, min_length=1, max_length=100, description="Consulta PEVs aprovados; no máximo 10 destinos por operação.")
     estado: str | None = Field(default=None, pattern=r"^[A-Za-z]{2}$", description="UF para desambiguar a cidade.")
-    ids_enderecos: list[UUID] | None = Field(default=None, min_length=1, description="Alternativa à cidade: endereços cadastrados selecionados pela busca próxima.")
+    ids_enderecos: list[UUID] | None = Field(default=None, min_length=1, max_length=MAX_DESTINATIONS, description="Alternativa à cidade: endereços cadastrados selecionados pela busca próxima.")
     origem_endereco: str | None = Field(default=None, min_length=1, max_length=500, description="Origem textual explicitamente informada pelo usuário; se ausente usa a localização enviada pelo dispositivo.")
 
 
@@ -103,8 +104,12 @@ def _consultar_locais(config, origem, cidade=None, estado=None, ids_enderecos=No
                 query += " WHERE distancia_linha_reta_metros <= %s OR distancia_linha_reta_metros IS NULL"
                 geo_params.append(raio_maximo)
             query += " ORDER BY distancia_linha_reta_metros NULLS LAST, nome, endereco_id"
-            cur.execute(query, [*params, *geo_params])
-            return cur.fetchall()
+            query += " LIMIT %s"
+            cur.execute(query, [*params, *geo_params, MAX_DESTINATIONS + 1])
+            rows = cur.fetchall()
+            if len(rows) > MAX_DESTINATIONS:
+                raise ValueError("A busca excede 10 destinos. Restrinja a cidade, os endereços ou o raio.")
+            return rows
 
 
 def selecionar_raio(locais, raio_inicial, raio_maximo):
@@ -141,7 +146,7 @@ def _dados_rota(resultado):
         raise ValueError("MCP reportou erro de cálculo.")
     dados = resultado.structured_content
     if dados is None:
-        text = next(item.text for item in resultado.content if item.type == "text")
+        text = next(item.text for item in resultado.text if item.type == "text")
         dados = json.loads(text)
     if not isinstance(dados, dict) or not isinstance(dados.get("routes"), list):
         raise ValueError("Retorno inválido.")
@@ -179,7 +184,7 @@ def _resumir_rota(resultado, modo):
 async def _campos_rota(session):
     from mcp import types
     params = None
-    while True:
+    for _ in range(4):
         pagina = await session.list_tools(params=params)
         for item in pagina.tools:
             if item.name == "compute_routes":
@@ -187,24 +192,28 @@ async def _campos_rota(session):
         if not pagina.next_cursor:
             raise RuntimeError("compute_routes indisponível no MCP.")
         params = types.PaginatedRequestParams(cursor=pagina.next_cursor)
+    raise RuntimeError("Paginação do MCP excedeu o limite.")
 
 
 async def _calcular_todos(locais, origem):
-    resultados = []
-    # Uma sessão, sem manter conexões ao banco durante as chamadas remotas.
-    async with maps_session() as session:
-        campos = await _campos_rota(session)
-        for local in locais:
-            trajetos = []
-            for modo in ("DRIVE", "WALK"):
-                try:
-                    resposta = await session.call_tool("compute_routes", arguments=_argumentos_rota(campos, origem, _destino(local), modo))
-                    trajetos.append(_resumir_rota(resposta, modo))
-                except Exception:
-                    # Um destino/modo com erro não apaga os demais resultados.
-                    trajetos.append({"status": "error", "modo": modo, "mensagem": "Não foi possível calcular este trajeto."})
-            resultados.append({**local, "trajetos": trajetos})
-    return resultados
+    if len(locais) > MAX_DESTINATIONS:
+        raise ValueError("Limite de destinos excedido.")
+    async with asyncio.timeout(MAPS_SECONDS):
+        resultados = []
+        # Uma sessão, sem manter conexões ao banco durante as chamadas remotas.
+        async with maps_session() as session:
+            campos = await _campos_rota(session)
+            for local in locais:
+                trajetos = []
+                for modo in ("DRIVE", "WALK"):
+                    try:
+                        resposta = await session.call_tool("compute_routes", arguments=_argumentos_rota(campos, origem, _destino(local), modo))
+                        trajetos.append(_resumir_rota(resposta, modo))
+                    except Exception:
+                        # Um destino/modo com erro não apaga os demais resultados.
+                        trajetos.append({"status": "error", "modo": modo, "mensagem": "Não foi possível calcular este trajeto."})
+                resultados.append({**local, "trajetos": trajetos})
+        return resultados
 
 
 def _status_resultados(resultados):
@@ -219,9 +228,9 @@ async def calcular_tempos_deslocamento(
     config: RunnableConfig, cidade: str | None = None, estado: str | None = None,
     ids_enderecos: list[UUID] | None = None, origem_endereco: str | None = None,
 ) -> dict:
-    """Consulta PEVs aprovados por cidade ou IDs e calcula DRIVE/WALK para TODOS.
+    """Consulta até 10 PEVs aprovados por cidade ou IDs e calcula DRIVE/WALK.
 
-    Sem limite de raio ou quantidade. Não inventa tempos, não calcula viagens
+    Buscas acima de 10 destinos devem ser refinadas. Não calcula viagens
     entre destinos: cada trajeto parte da mesma origem. Identidade e localização
     vêm de configurable.user_id e configurable.localizacao, validados pelo backend.
     Disponível a usuários ativos B2B e B2C. Cidade e IDs podem ser combinados como filtros.
@@ -252,7 +261,7 @@ async def buscar_locais_proximos(
     """Busca somente PEVs aprovados próximos do dispositivo e calcula tempos DRIVE/WALK.
 
     Uma consulta ao banco calcula distâncias e simula raios de 100 m, +50 m,
-    até o primeiro raio com resultados ou o máximo informado. Devolve TODOS os
+    até o primeiro raio com resultados ou o máximo informado. No máximo 10
     PEVs desse raio, para usuários B2B e B2C. B2Bs comuns não entram nesta busca.
     A tool calcular_tempos_deslocamento é chamada com os endereços selecionados.
     """

@@ -1,4 +1,4 @@
-from .persona_olius import SYSTEM_PERSON
+from app.prompts.persona_olius import SYSTEM_PERSON
 
 ORCHESTRATOR = f"""
 {SYSTEM_PERSON}
@@ -39,21 +39,21 @@ ORCHESTRATOR_SHOTS_OPEN = (
 
 ORCHESTRATOR_SHOT_1 = """
 Orquestrador recebe: {"dominio":"[dominio]","intencao":"consultar","resposta":"[diagnóstico objetivo]","recomendacao":"[ação sugerida]"}
-Assessor.AI:
+OlivIA:
 - [diagnóstico objetivo]
 - *Recomendação*:
 [ação sugerida]"""
 
 ORCHESTRATOR_SHOT_2 = """
 Orquestrador recebe: {"dominio":"[dominio]","intencao":"[intencao]","resposta":"[diagnóstico]","recomendacao":"","esclarecer":"[pergunta mínima]"}
-Assessor.AI:
+OlivIA:
 - [diagnóstico]
 - *Acompanhamento*:
 [pergunta mínima]"""
 
 ORCHESTRATOR_SHOT_3 = """
 Orquestrador recebe: {"dominio":"[dominio]","intencao":"[intencao]","resposta":"[diagnóstico]","recomendacao":"[ação]","acompanhamento":"[próximo passo]"}
-Assessor.AI:
+OlivIA:
 - [diagnóstico]
 - *Recomendação*:
 [ação]

@@ -2,11 +2,13 @@ import operator
 from typing import Annotated
 from langgraph.graph import StateGraph, MessagesState, END
 from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import RemoveMessage
 from app.guardrail import guardrail_entrada, guardrail_saida, anonimizar_entrada
-from app.memory import iniciar_sessao, salvar_mensagem, encerrar_sessao
+from app.memory import iniciar_sessao, salvar_mensagem, recuperar_contexto, reservar_turno
+from app.limits import MAX_MESSAGE
 from app.agents import AGENTS
+from app.agents_metrics import instrumentar_no
+import asyncio
 from app.judge import no_juiz
 
 faq_app = AGENTS["faq"]
@@ -32,28 +34,17 @@ def no_guardrail_entrada(estado: Estado) -> dict:
 
     resultado = guardrail_entrada(texto_anonimizado)
 
-    salvar_mensagem(
-        session_id=estado["session_id"],
-        user_id=estado["user_id"],
-        role="human",
-        content=texto_anonimizado
-    )
-
     if resultado["bloqueado"]:
 
-        salvar_mensagem(
-        session_id=estado["session_id"],
-        user_id=estado["user_id"],
-        role="assistant",
-        content=resultado["mensagem"]
-    )
-
         return {
-            "messages": [{"role": "assistant", "content": resultado["mensagem"]}],
+            "messages": [RemoveMessage(id=human_message.id), {"role": "assistant", "content": resultado["mensagem"]}],
             "rota": "fim",
             "mapa_pii": {},
             "agentes_chamados": [f"guardrail_entrada:{resultado['motivo']}"],
         }
+
+    salvar_mensagem(session_id=estado["session_id"], user_id=estado["user_id"],
+                    role="human", content=texto_anonimizado)
 
     return {
         "messages": [
@@ -70,13 +61,6 @@ def router_node(estado: Estado, config: RunnableConfig) -> dict:
     texto = saida["messages"][-1].text
 
     if "ROUTE=" not in texto:
-
-        salvar_mensagem(
-            session_id=estado["session_id"],
-            user_id=estado["user_id"],
-            role="assistant",
-            content=texto
-        )
 
         return {
             "agentes_chamados": ["router"],
@@ -98,8 +82,8 @@ def router_node(estado: Estado, config: RunnableConfig) -> dict:
 def orchestrator_node(estado: Estado) -> dict:
     ultima_especialista = ""
     for mensagem in reversed(estado["messages"]):
-        if mensagem.type == "ai" and mensagem.content:
-            ultima_especialista = mensagem.content
+        if mensagem.type == "ai" and mensagem.text:
+            ultima_especialista = mensagem.text
             break
     
     saida = orchestrator_app.invoke({
@@ -117,13 +101,6 @@ def no_guardrail_saida(estado: Estado) -> dict:
 
     resultado = guardrail_saida(ultima_resposta.text, estado.get("mapa_pii", {}))
 
-    salvar_mensagem(
-        session_id=estado["session_id"],
-        user_id=estado["user_id"], 
-        role="assistant",
-        content=resultado["conteudo"]
-    )
-
     return {
         "messages": [RemoveMessage(id=ultima_resposta.id), {"role": "assistant", "content": resultado["conteudo"]}],
         "agentes_chamados": ["guardrail_saida"],
@@ -138,16 +115,16 @@ def decidir_pos_guardrail_entrada(estado: Estado) -> str:
 
 grafo = StateGraph(Estado)
 
-grafo.add_node("guardrail_entrada", no_guardrail_entrada)
-grafo.add_node("router", router_node)
-grafo.add_node("oil_advisor", oil_advisor_app)
-grafo.add_node("routes_maps", routes_maps_app)
-grafo.add_node("ranking_sustainable", ranking_sustainable_app)
-grafo.add_node("business_analyst", business_analyst_app)
-grafo.add_node("faq", faq_app)
-grafo.add_node("orchestrator", orchestrator_node)
-grafo.add_node("guardrail_saida", no_guardrail_saida)
-grafo.add_node("juiz", no_juiz)
+grafo.add_node("guardrail_entrada", instrumentar_no("guardrail_entrada", no_guardrail_entrada))
+grafo.add_node("router", instrumentar_no("router", router_node))
+grafo.add_node("oil_advisor", instrumentar_no("oil_advisor", oil_advisor_app))
+grafo.add_node("routes_maps", instrumentar_no("routes_maps", routes_maps_app))
+grafo.add_node("ranking_sustainable", instrumentar_no("ranking_sustainable", ranking_sustainable_app))
+grafo.add_node("business_analyst", instrumentar_no("business_analyst", business_analyst_app))
+grafo.add_node("faq", instrumentar_no("faq", faq_app))
+grafo.add_node("orchestrator", instrumentar_no("orchestrator", orchestrator_node))
+grafo.add_node("guardrail_saida", instrumentar_no("guardrail_saida", no_guardrail_saida))
+grafo.add_node("juiz", instrumentar_no("juiz", no_juiz))
 
 grafo.set_entry_point("guardrail_entrada")
 
@@ -160,7 +137,7 @@ grafo.add_conditional_edges(
         "ranking_sustainable": "ranking_sustainable",
         "business_analyst": "business_analyst",
         "faq": "faq",
-        "fim": END,
+        "fim": "guardrail_saida",
     },
 )
 
@@ -176,31 +153,32 @@ grafo.add_edge("ranking_sustainable", "orchestrator")
 grafo.add_edge("business_analyst", "orchestrator")
 grafo.add_edge("orchestrator", "guardrail_saida")
 grafo.add_edge("guardrail_saida", "juiz")
-grafo.add_edge("faq", "juiz")
+grafo.add_edge("faq", "guardrail_saida")
 grafo.add_edge("juiz", END)
 
-memory = MemorySaver()
-fluxo_agentes = grafo.compile(checkpointer=memory)
+# O contexto vem exclusivamente da conversa autenticada no MongoDB.
+# Nenhum checkpoint mantém mensagens rejeitadas, PII original ou tool calls antigas.
+fluxo_agentes = grafo.compile()
+
+
+async def executar_fluxo_async(pergunta_usuario: str, session_id_user: str, user_id: str) -> list:
+    await asyncio.to_thread(iniciar_sessao, session_id_user, user_id)
+    await asyncio.to_thread(reservar_turno, session_id_user, user_id)
+    contexto = await asyncio.to_thread(recuperar_contexto, session_id_user, user_id)
+    estado_inicial = {
+        "messages": [*contexto, {"role": "human", "content": pergunta_usuario}],
+        "agentes_chamados": [], "rota": "", "mapa_pii": {},
+        "session_id": session_id_user, "user_id": user_id,
+    }
+    estado_final = await fluxo_agentes.ainvoke(
+        estado_inicial,
+        config={"recursion_limit": 24, "configurable": {"user_id": user_id}},
+    )
+    resposta = estado_final["messages"][-1].text[:MAX_MESSAGE]
+    # Persistir somente a resposta final; as saídas intermediárias não viram memória.
+    await asyncio.to_thread(salvar_mensagem, session_id_user, "assistant", resposta, user_id)
+    return [resposta, estado_final["agentes_chamados"], estado_final["rota"]]
+
 
 def executar_fluxo(pergunta_usuario: str, session_id_user: str, user_id: str) -> list:
-    iniciar_sessao(session_id=session_id_user, user_id=user_id)
-
-    estado_inicial = {
-        "messages": [{"role": "human", "content": pergunta_usuario}],
-        "agentes_chamados": [],
-        "rota": "",
-        "mapa_pii": {},
-        "session_id": session_id_user,
-        "user_id": user_id
-    }
-
-    estado_final = fluxo_agentes.invoke(
-        estado_inicial,
-        config={"configurable": {"thread_id": session_id_user, "user_id": user_id}},
-    ) 
-    
-    return [
-        estado_final["messages"][-1].text,
-        estado_final["agentes_chamados"],
-        estado_final["rota"]
-    ]
+    return asyncio.run(executar_fluxo_async(pergunta_usuario, session_id_user, user_id))

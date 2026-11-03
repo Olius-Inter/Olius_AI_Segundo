@@ -10,9 +10,11 @@ import pytest
 def config(monkeypatch, tmp_path):
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
     monkeypatch.setenv("CHATGPT_API_KEY", "test-chatgpt-key")
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("MONGODB_URI", "mongodb://test.invalid")
+    monkeypatch.setenv("CORE_AUTH_URL", "https://core.test.invalid/auth/status")
     monkeypatch.setenv("DATABASE_URL", "postgresql://test:test@localhost/test")
+    monkeypatch.setenv("CORS_ORIGINS", "http://localhost:8000")
     path = Path(__file__).resolve().parents[1] / "app" / "config.py"
     spec = importlib.util.spec_from_file_location("chatbot_config_under_test", path)
     module = importlib.util.module_from_spec(spec)
@@ -25,6 +27,15 @@ def config(monkeypatch, tmp_path):
 
 def test_valid_configuration_has_no_problems(config):
     assert config.validar_config() == []
+
+
+def test_providers_and_persistence_are_required(config):
+    assert set(config.OBRIGATORIAS) == {"CHATGPT_API_KEY", "GROQ_API_KEY", "MONGODB_URI", "DATABASE_URL"}
+
+
+def test_cors_nao_permite_curinga(config, monkeypatch):
+    monkeypatch.setattr(config, "CORS_ORIGINS", ["*"])
+    assert config.validar_config() == ["CORS_ORIGINS deve listar origens explícitas, sem '*'."]
 
 
 @pytest.mark.parametrize("missing", [("GROQ_API_KEY",), ("DATABASE_URL",), ("GROQ_API_KEY", "DATABASE_URL")])

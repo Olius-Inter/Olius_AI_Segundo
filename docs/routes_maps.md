@@ -24,7 +24,8 @@ Não há consulta de B2Bs comuns, exceção para ADMIN nem flag de acesso especi
 `buscar_locais_proximos` usa coordenadas enviadas pelo dispositivo, sem origem
 fictícia. Seleciona somente PEVs aprovados, tanto para B2B quanto para B2C, no primeiro raio não vazio:
 100 m, 150 m, 200 m etc. O teto padrão é 5.000 m e pode ser alterado pelo argumento
-`raio_maximo_metros` até 50.000 m. Não há corte de três destinos.
+`raio_maximo_metros` até 50.000 m. Buscas com mais de 10 candidatos devem
+ser refinadas para um raio menor antes do cálculo.
 
 Uma consulta SQL calcula a distância geográfica dos candidatos. O raio efetivo
 é calculado matematicamente, sem repetir o SELECT para cada incremento. Depois
@@ -40,15 +41,16 @@ cadastro por um processo próprio, sem inventar valores.
 
 `calcular_tempos_deslocamento` recebe `cidade`, `estado` ou `ids_enderecos`.
 Por exemplo: todos os PEVs aprovados da cidade `Osasco`, estado `SP`.
-Sem limite de raio, quantidade ou paginação: todos os PEVs aprovados do
-filtro são enviados ao cálculo. A origem pode ser a localização do contexto ou
+O backend aceita até 10 destinos e consulta no máximo 11 linhas para detectar
+excesso. Se o filtro superar 10 destinos, a operação é recusada antes de chamar
+o Google; o usuário deve refinar a busca. A origem pode ser a localização do contexto ou
 `origem_endereco` explicitamente informado pelo usuário.
 
 Há duas chamadas `compute_routes` por destino, DRIVE e WALK. Cada viagem parte
 da mesma origem, sem otimização de roteiro entre vários estabelecimentos.
-Grandes consultas de cidade podem demorar e consumir quota proporcional ao
-número de destinos; não há corte silencioso. Em escala, considerar tarefa de
-exportação/processamento em segundo plano, em vez de uma resposta de chat única.
+O cálculo tem prazo total de 30 segundos e no máximo 20 chamadas por execução
+da ferramenta. O chat tem prazo de processamento de 60 segundos, cotas por
+usuário e concorrência global limitada. Não há corte silencioso de destinos.
 
 O banco é a fonte dos locais: `search_places` não descobre destinos nesta etapa.
 Destinos com coordenadas usam latitude/longitude; na consulta direta, endereços

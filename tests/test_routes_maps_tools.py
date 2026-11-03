@@ -42,7 +42,7 @@ class RoutesMapsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("latLng", args["origin"])
         self.assertEqual(args["destination"], point)
 
-    def test_query_is_parameterized_and_has_no_result_limit(self):
+    def test_query_is_parameterized_and_bounded(self):
         conn = MagicMock()
         cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
         cur.fetchone.return_value = {"id": USER}
@@ -53,7 +53,8 @@ class RoutesMapsTests(unittest.IsolatedAsyncioTestCase):
         sql, params = cur.execute.call_args.args
         self.assertNotIn(city, sql)
         self.assertIn(city, params)
-        self.assertNotIn("LIMIT", sql)
+        self.assertIn("LIMIT %s", sql)
+        self.assertEqual(params[-1], tools.MAX_DESTINATIONS + 1)
         self.assertIn("p.status = 'APPROVED'", sql)
         self.assertIn("u.status = 'ACTIVE'", sql)
         self.assertNotIn("public.establishment", sql)
@@ -100,13 +101,15 @@ class RoutesMapsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "sem_resultados_no_raio")
         calculate.assert_not_called()
 
-    async def test_direct_city_does_not_cut_results(self):
-        rows = [local() for _ in range(125)]
-        computed = [{**row, "trajetos": [{"status": "ok"}, {"status": "ok"}]} for row in rows]
-        with patch.object(tools, "_consultar_locais", return_value=rows), patch.object(tools, "_calcular_todos", new_callable=AsyncMock, return_value=computed) as calculate:
+    async def test_city_over_limit_never_calls_maps(self):
+        conn = MagicMock()
+        cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cur.fetchone.return_value = {"id": USER}
+        cur.fetchall.return_value = [local() for _ in range(tools.MAX_DESTINATIONS + 1)]
+        with patch.object(tools, "get_conn", return_value=conn), patch.object(tools, "_calcular_todos", new_callable=AsyncMock) as calculate:
             result = await tools.calcular_tempos_deslocamento.ainvoke({"cidade": "Osasco"}, config=CONFIG)
-        self.assertEqual(result["quantidade"], 125)
-        self.assertEqual(len(calculate.call_args.args[0]), 125)
+        self.assertEqual(result["status"], "error")
+        calculate.assert_not_awaited()
 
     async def test_missing_identity_and_origin_do_not_query_database(self):
         for config in ({}, {"configurable": {"user_id": USER}}):

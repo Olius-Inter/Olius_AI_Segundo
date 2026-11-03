@@ -1,7 +1,11 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
-from app.config import validar_config
-from app.routes import chat, sessions
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from app.config import validar_config, CORS_ORIGINS
+from app.routes import chat, sessions, monitor
+from app.request_limits import BodyLimitMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
@@ -19,15 +23,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(BodyLimitMiddleware)
+
 app.include_router(chat.router)
 app.include_router(sessions.router)
+app.include_router(monitor.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 @app.get("/health", tags=["infra"])
@@ -36,3 +43,21 @@ def health() -> dict:
     return {
         "status": "ok" if not problemas else problemas,
     }
+
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.get("/", response_class=RedirectResponse, include_in_schema=False)
+def inicio() -> RedirectResponse:
+    return RedirectResponse(url="/monitor")
+
+
+@app.get("/monitor", response_class=FileResponse, include_in_schema=False)
+def monitor_principal() -> FileResponse:
+    """Abre o monitor principal."""
+    return FileResponse(FRONTEND_DIR / "monitor.html")
+
+
+# As rotas de API precisam preceder a montagem na raiz.
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
