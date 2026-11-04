@@ -1,0 +1,24 @@
+# Somente os arquivos necessários à imagem entram no contexto.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!security-constraints.txt
+!app/
+!app/**
+!frontend/
+!frontend/**
+
+# Exclusões também se aplicam dentro das pastas permitidas.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/.git/
+**/.aws/
