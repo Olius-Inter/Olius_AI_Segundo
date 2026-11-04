@@ -3,17 +3,9 @@ Verificações de segurança e compliance dos agentes do projeto Olius.
 ENTRADA → anonimizar → checar injeção → checar dados internos → classificar (LLM)
 SAÍDA → redigir PII → desanonimizar → revisar compliance (LLM)
 """
-import os, re, uuid
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
-
-load_dotenv()
-
-llm = ChatGroq(
-    model="openai/gpt-oss-120b", 
-    temperature=0.0,
-    api_key=os.getenv("GROQ_API_KEY")
-)
+import re
+import uuid
+from app.llms import llm_rapido
 
 # PII — Dados pessoais sensíveis (usar na entrada e saída)
 PII = [
@@ -124,9 +116,9 @@ def guardrail_entrada(mensagem_anonimizada):
             return _bloquear("acesso_dados_internos", "Não posso compartilhar informações internas do sistema.")
 
     # Classificação semântica via LLM (ofensivo, perigoso, ilícito, político)
-    resposta = llm.invoke(_PROMPT_CLASSIFICADOR.format(mensagem=mensagem_anonimizada)).content
+    resposta = llm_rapido.invoke(_PROMPT_CLASSIFICADOR.format(mensagem=mensagem_anonimizada)).text.strip()
 
-    categoria = "APROVADO"
+    categoria = None
     for linha in resposta.splitlines():
         if linha.strip().upper().startswith("CATEGORIA:"):
             categoria = linha.split(":", 1)[1].strip().upper()
@@ -135,6 +127,9 @@ def guardrail_entrada(mensagem_anonimizada):
     if categoria in _RESPOSTAS_BLOQUEIO:
         motivo, mensagem = _RESPOSTAS_BLOQUEIO[categoria]
         return _bloquear(motivo, mensagem)
+
+    if categoria != "APROVADO":
+        return _bloquear("classificacao_invalida", "Não foi possível validar a mensagem. Tente reformular a solicitação.")
 
     return _aprovado()
 
@@ -169,8 +164,11 @@ def guardrail_saida(resposta, mapa_pii, restaurar_pii=False):
     resposta = desanonimizar_saida(resposta, mapa_pii, restaurar=restaurar_pii)
 
     # 3. Revisão de compliance
-    saida = llm.invoke(_PROMPT_COMPLIANCE.format(resposta=resposta)).content.strip()
+    saida = llm_rapido.invoke(_PROMPT_COMPLIANCE.format(resposta=resposta)).text.strip()
     if "RESPOSTA:" in saida:
         resposta = saida.split("RESPOSTA:", 1)[1].strip() or resposta
 
+    # A revisão também pode gerar PII: confira novamente antes de entregar.
+    for tipo, padrao in PII:
+        resposta = re.sub(padrao, f"[{tipo} OMITIDO]", resposta)
     return _saida_ok(resposta)
