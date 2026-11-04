@@ -38,11 +38,18 @@ validado pela Core; esta configuração não implementa um proxy de chat na Core
 CORS_ORIGINS contém apenas origens locais para acesso por port-forward.
 Revise origens se houver um cliente web autorizado.
 
-Prepare um arquivo protegido fora do repositório, com os pares NOME=valor:
+Prepare um arquivo exclusivo de Secrets, ../olivia-secrets.env, protegido e fora do repositório, com os pares NOME=valor:
 
 - CHATGPT_API_KEY, GROQ_API_KEY, MONGODB_URI e DATABASE_URL.
 - QDRANT_URL e QDRANT_API_KEY conforme o serviço.
 - GOOGLE_MAPS_API_KEY e TYPESAFE_API_KEY conforme as funcionalidades utilizadas.
+
+Não reutilize diretamente ../olivia-runtime.env do teste Docker: ele pode conter
+configuração que pertence ao ConfigMap. Remova CORE_AUTH_URL do arquivo usado
+para criar ia-secrets; mantenha também CORS_ORIGINS e GOOGLE_MAPS_API_URL somente
+em ia-config. O arquivo de Secrets deve conter apenas as chaves listadas acima.
+O Deployment carrega ia-secrets depois de ia-config: em caso de nomes repetidos,
+o Secret tem precedência e pode sobrescrever a URL revisada no ConfigMap.
 
 Use formato psycopg para DATABASE_URL e SSL adequado ao serviço; não copie
 uma URL JDBC. Não use dados reais em comandos publicados ou no chat.
@@ -53,10 +60,13 @@ Para a primeira criação, após confirmar que ia-secrets ainda não existe:
 
 ```bash
 kubectl get secrets -n olius
-chmod 600 ../olivia-runtime.env
-kubectl create secret generic ia-secrets -n olius --from-env-file=../olivia-runtime.env
-rm -- ../olivia-runtime.env
+chmod 600 ../olivia-secrets.env &&
+kubectl create secret generic ia-secrets -n olius --from-env-file=../olivia-secrets.env &&
+rm -- ../olivia-secrets.env
 ```
+
+O arquivo local só é removido se a criação do Secret tiver sucesso. Se falhar,
+corrija a causa e tente novamente com o arquivo preservado.
 
 Se ia-secrets já existir, revise suas chaves e planeje a atualização específica;
 não apague ou substitua Secrets da Core. Confira nomes de chaves sem imprimir valores:
