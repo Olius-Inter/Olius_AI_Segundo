@@ -85,18 +85,85 @@ def test_configuracao_core_sem_endpoint_inseguro(monkeypatch, url):
         security.auth_url()
 
 
-def test_monitor_anonimo_e_usuario_comum_nao_recebem_metricas():
+@pytest.fixture
+def monitor_client(monkeypatch):
+    from app import monitor_access
     from app.routes.monitor import router
+
+    senha = "ExemploDeTeste123456"
+    verificador = monitor_access.gerar_verificador(senha)
+    monkeypatch.setenv("MONITOR_PASSWORD_HASH", verificador)
+    documentos = {}
+    colecao = Mock()
+    colecao.insert_one.side_effect = lambda doc: documentos.update({doc["_id"]: doc})
+
+    def buscar(filtro, projecao):
+        doc = documentos.get(filtro["_id"])
+        if doc and doc["expires_at"] > filtro["expires_at"]["$gt"] and doc["versao_senha"] == filtro["versao_senha"]:
+            return {"_id": doc["_id"]}
+        return None
+
+    colecao.find_one.side_effect = buscar
+    colecao.delete_one.side_effect = lambda filtro: documentos.pop(filtro["_id"], None)
+    monkeypatch.setattr(monitor_access, "_colecao", lambda: colecao)
+    monkeypatch.setattr(monitor_access, "_cota", Mock())
     app = FastAPI()
     app.include_router(router)
-    with TestClient(app) as client:
-        assert client.get("/api/v1/monitor").status_code == 401
-        app.dependency_overrides[security.exigir_usuario] = principal
-        assert client.get("/api/v1/monitor").status_code == 403
-        app.dependency_overrides[security.exigir_usuario] = lambda: principal("ADMIN")
-        response = client.get("/api/v1/monitor")
-        assert response.status_code == 200
-        assert all("session_id" not in t for t in response.json()["turnos"])
+    app.dependency_overrides[security.exigir_usuario] = lambda: principal("ADMIN")
+    with TestClient(app, base_url="https://testserver") as client:
+        yield client, senha, documentos
+
+
+def test_monitor_exige_senha_e_nao_aceita_bearer_admin(monitor_client):
+    from app.monitor_access import COOKIE_MONITOR
+
+    client, senha, documentos = monitor_client
+    assert client.get("/api/v1/monitor").status_code == 401
+    assert client.get("/api/v1/monitor", headers={"Authorization": "Bearer token-admin"}).status_code == 401
+
+    incorreta = "OutraSenhaDeTeste123"
+    erro = client.post("/api/v1/monitor/entrar", json={"senha": incorreta})
+    assert erro.status_code == 401
+    assert incorreta not in erro.text
+    assert "set-cookie" not in erro.headers
+
+    login = client.post("/api/v1/monitor/entrar", json={"senha": senha})
+    assert login.status_code == 204 and not login.content
+    cookie = login.headers["set-cookie"]
+    assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=strict" in cookie
+    assert senha not in cookie
+    token = client.cookies[COOKIE_MONITOR]
+    assert all(token not in str(doc) for doc in documentos.values())
+
+    resposta = client.get("/api/v1/monitor")
+    assert resposta.status_code == 200
+    assert resposta.headers["cache-control"] == "no-store"
+    assert all("session_id" not in t for t in resposta.json()["turnos"])
+
+    assert client.post("/api/v1/monitor/sair").status_code == 204
+    assert client.get("/api/v1/monitor", headers={"Cookie": f"{COOKIE_MONITOR}={token}"}).status_code == 401
+
+
+def test_monitor_recusa_origem_externa_e_limita_tentativas(monitor_client, monkeypatch):
+    from app import monitor_access
+
+    client, senha, documentos = monitor_client
+    externo = client.post("/api/v1/monitor/entrar", json={"senha": senha}, headers={"Origin": "https://outra-origem.test"})
+    assert externo.status_code == 403
+
+    def cota_esgotada(*args):
+        raise HTTPException(429, "Cota esgotada.")
+
+    monkeypatch.setattr(monitor_access, "_cota", cota_esgotada)
+    assert client.post("/api/v1/monitor/entrar", json={"senha": senha}).status_code == 429
+    assert not documentos
+
+
+def test_monitor_recusa_sessao_expirada(monitor_client):
+    client, senha, documentos = monitor_client
+    assert client.post("/api/v1/monitor/entrar", json={"senha": senha}).status_code == 204
+    next(iter(documentos.values()))["expires_at"] = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    assert client.get("/api/v1/monitor").status_code == 401
 
 
 def test_chat_http_usa_apenas_identidade_autenticada(monkeypatch):

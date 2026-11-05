@@ -6,7 +6,7 @@ import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from app.routes.monitor import router as monitor_router
-from app.security import exigir_admin, UsuarioAutenticado
+from app.monitor_access import exigir_sessao_monitor
 
 def _fake_router(path):
     router = APIRouter()
@@ -48,7 +48,7 @@ def main_module():
     }):
         sys.modules.pop("app.main", None)
         module = importlib.import_module("app.main")
-        module.app.dependency_overrides[exigir_admin] = lambda: UsuarioAutenticado(user_id="00000000-0000-0000-0000-000000000001", session_id="00000000-0000-0000-0000-000000000002", user_type="ADMIN")
+        module.app.dependency_overrides[exigir_sessao_monitor] = lambda: None
         try:
             yield module, config_module, problemas
         finally:
@@ -147,9 +147,9 @@ def test_cors_responde_preflight(main_module):
 
 
 @pytest.mark.parametrize("caminho,conteudo", [
-    ("/", "Resumo do monitor"),
-    ("/monitor", "Resumo do monitor"),
-    ("/monitor.html", "Resumo do monitor"),
+    ("/", "Acesse o monitor"),
+    ("/monitor", "Acesse o monitor"),
+    ("/monitor.html", "Acesse o monitor"),
 ])
 def test_monitor_principal_e_servido(main_module, caminho, conteudo):
     module, _, _ = main_module
@@ -176,3 +176,23 @@ def test_cors_recusa_origem_nao_autorizada(main_module):
         })
     assert resposta.status_code == 400
     assert "access-control-allow-origin" not in resposta.headers
+
+
+def test_monitor_abre_graficos_apenas_com_sessao(main_module, monkeypatch):
+    module, _, _ = main_module
+    with TestClient(module.app) as client:
+        entrada = client.get("/monitor")
+        assert "Acesse o monitor" in entrada.text
+        assert "Resumo do monitor" not in entrada.text
+        assert entrada.headers["cache-control"] == "no-store"
+        assert 'src="/monitor/olius-logo.png"' in entrada.text
+        logo = client.get("/monitor/olius-logo.png")
+        assert logo.status_code == 200
+        assert logo.headers["content-type"] == "image/png"
+        assert logo.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+        monkeypatch.setattr(module, "tem_sessao_monitor", lambda request: True)
+        painel = client.get("/monitor")
+        assert "Resumo do monitor" in painel.text
+        assert "Acesse o monitor" not in painel.text
+        assert painel.headers["cache-control"] == "no-store"

@@ -8,8 +8,13 @@ e custo do modelo. Avaliação da resposta não entra aqui.
 
 import math
 
-from fastapi import APIRouter, Depends
-from app.security import exigir_admin, UsuarioAutenticado
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from starlette.concurrency import run_in_threadpool
+
+from app.monitor_access import (
+    COOKIE_MONITOR, VALIDADE_SESSAO, abrir_sessao_monitor, encerrar_sessao_monitor,
+    exigir_sessao_monitor, validar_origem,
+)
 
 from app.observability import (
     LIMITE_P95_MS,
@@ -166,7 +171,37 @@ def montar_painel() -> dict:
     }
 
 
-@router.get("/api/v1/monitor")
-def painel(usuario: UsuarioAutenticado = Depends(exigir_admin)) -> dict:
+@router.post("/api/v1/monitor/entrar", status_code=204)
+async def entrar(request: Request) -> Response:
+    validar_origem(request)
+    if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
+        raise HTTPException(415, "Use o formulário de acesso ao monitor.")
+    try:
+        dados = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Não foi possível ler o formulário.") from None
+    senha = dados.get("senha") if isinstance(dados, dict) else None
+    endereco = request.client.host if request.client else "desconhecido"
+    token = await run_in_threadpool(abrir_sessao_monitor, senha, endereco)
+    resposta = Response(status_code=204, headers={"Cache-Control": "no-store"})
+    resposta.set_cookie(
+        COOKIE_MONITOR, token, max_age=VALIDADE_SESSAO, httponly=True,
+        secure=True, samesite="strict", path="/",
+    )
+    return resposta
+
+
+@router.post("/api/v1/monitor/sair", status_code=204)
+def sair(request: Request) -> Response:
+    validar_origem(request)
+    encerrar_sessao_monitor(request)
+    resposta = Response(status_code=204, headers={"Cache-Control": "no-store"})
+    resposta.delete_cookie(COOKIE_MONITOR, secure=True, httponly=True, samesite="strict", path="/")
+    return resposta
+
+
+@router.get("/api/v1/monitor", dependencies=[Depends(exigir_sessao_monitor)])
+def painel(response: Response) -> dict:
     """Números do processo atual. Reiniciar o servidor zera o registro."""
+    response.headers["Cache-Control"] = "no-store"
     return montar_painel()
