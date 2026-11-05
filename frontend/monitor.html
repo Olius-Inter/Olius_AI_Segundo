@@ -61,13 +61,8 @@
   <main class="pagina">
     <header>
       <div><p class="sobretitulo">OLIVIA / ASSISTENTE</p><h1>Resumo do monitor</h1><p class="sub">Uma visão clara da operação do seu assistente.</p></div>
-      <div class="acoes"><button type="button" id="atualizar">Atualizar</button></div>
+      <div class="acoes"><button type="button" id="atualizar">Atualizar</button><button type="button" id="sair">Sair</button></div>
     </header>
-    <form id="acesso-monitor" class="acoes">
-      <label for="token-monitor">Acesso administrativo</label>
-      <input id="token-monitor" type="password" autocomplete="off" maxlength="8192" placeholder="Token de acesso" required>
-      <button type="submit">Acessar</button>
-    </form>
     <section class="resumo" aria-label="Resumo da operação">
       <div class="estado"><span class="ponto" id="ponto" aria-hidden="true"></span><div><strong id="estado">Conectando à API…</strong><p id="uptime">Aguardando leitura</p></div></div>
       <div class="turnos-resumo"><strong id="total-turnos">— turnos</strong><p id="andamento">— em andamento</p></div>
@@ -458,26 +453,22 @@
     }
 
 
-    let tokenMonitor = "";
     let ultimosDados = null;
     let carregando = false;
     const botao = document.getElementById("atualizar");
     async function carregar() {
-      if (carregando || !tokenMonitor) return;
+      if (carregando) return;
       carregando = true;
       botao.disabled = true;
       botao.textContent = "Atualizando…";
       try {
-        const resposta = await fetch("/api/v1/monitor", { cache: "no-store", headers: { Authorization: "Bearer " + tokenMonitor }, signal: AbortSignal.timeout(10000) });
-        if (resposta.status === 401 || resposta.status === 403) {
-          tokenMonitor = "";
-          ultimosDados = null;
-          document.querySelectorAll(".numeros, .principal, .interagentes, .inferior").forEach(el => el.hidden = true);
-          throw new Error("Acesso negado. Informe um token administrativo válido.");
+        const resposta = await fetch("/api/v1/monitor", { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(10000) });
+        if (resposta.status === 401) {
+          window.location.replace("/monitor");
+          return;
         }
         if (!resposta.ok) throw new Error("HTTP " + resposta.status);
         const dados = await resposta.json();
-        document.querySelectorAll(".numeros, .principal, .interagentes, .inferior").forEach(el => el.hidden = false);
         render(dados);
         ultimosDados = dados;
         aviso.hidden = true;
@@ -495,11 +486,25 @@
         botao.textContent = "Atualizar";
       }
     }
-    document.getElementById("acesso-monitor").addEventListener("submit", event => {
-      event.preventDefault();
-      tokenMonitor = document.getElementById("token-monitor").value.trim();
-      document.getElementById("token-monitor").value = "";
-      carregar();
+    const sair = document.getElementById("sair");
+    sair.addEventListener("click", async () => {
+      sair.disabled = true;
+      try {
+        const resposta = await fetch("/api/v1/monitor/sair", {
+          method: "POST",
+          credentials: "same-origin",
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!resposta.ok) throw new Error();
+        window.location.replace("/monitor");
+      } catch {
+        aviso.textContent = "Não foi possível sair do monitor. Tente novamente.";
+        aviso.hidden = false;
+        sair.disabled = false;
+      }
+    });
+    window.addEventListener("pageshow", (evento) => {
+      if (evento.persisted) window.location.replace("/monitor");
     });
     botao.addEventListener("click", carregar);
     carregar();

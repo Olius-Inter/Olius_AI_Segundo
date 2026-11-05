@@ -1,9 +1,9 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from app.config import validar_config, CORS_ORIGINS
+from app.monitor_access import tem_sessao_monitor
 from app.routes import chat, sessions, monitor
 from app.request_limits import BodyLimitMiddleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,16 +48,26 @@ def health() -> dict:
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 
+@app.get("/monitor/olius-logo.png", response_class=FileResponse, include_in_schema=False)
+def monitor_logo() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "olius-logo.png", media_type="image/png")
+
+
 @app.get("/", response_class=RedirectResponse, include_in_schema=False)
 def inicio() -> RedirectResponse:
     return RedirectResponse(url="/monitor")
 
 
 @app.get("/monitor", response_class=FileResponse, include_in_schema=False)
-def monitor_principal() -> FileResponse:
-    """Abre o monitor principal."""
-    return FileResponse(FRONTEND_DIR / "monitor.html")
+def monitor_principal(request: Request) -> FileResponse:
+    arquivo = "monitor.html" if tem_sessao_monitor(request) else "monitor-acesso.html"
+    return FileResponse(FRONTEND_DIR / arquivo, headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "frame-ancestors 'none'; form-action 'self'",
+        "Referrer-Policy": "no-referrer",
+    })
 
 
-# As rotas de API precisam preceder a montagem na raiz.
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+@app.get("/monitor.html", response_class=RedirectResponse, include_in_schema=False)
+def monitor_antigo() -> RedirectResponse:
+    return RedirectResponse(url="/monitor", headers={"Cache-Control": "no-store"})

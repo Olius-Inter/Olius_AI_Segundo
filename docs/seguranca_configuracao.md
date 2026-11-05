@@ -114,9 +114,27 @@ deve verificar a operação interrompida antes de recuperar esse estado. Ele nã
 
 ## Monitor e validação
 
-O JSON do monitor exige perfil ADMIN e não devolve IDs de conversas. A página
-estática permite informar o access token administrativo, mantido apenas em memória
-e apagado do campo após o envio; não usa localStorage nem parâmetros na URL.
+Acesse `/monitor` no endereço do chatbot. A equipe entra com uma senha de
+20 caracteres. A permissão é exclusiva do monitor e independente dos perfis da
+Core. A tela e o JSON das métricas exigem a mesma sessão.
+
+Para configurar, execute `python -m app.monitor_access` e informe a senha no
+terminal. Guarde a linha `MONITOR_PASSWORD_HASH` retornada no `.env` local ou
+injete o valor como segredo no ambiente AWS. Configure o mesmo valor em todas
+as réplicas e reinicie o serviço. Use uma senha própria em produção.
+Sem o hash configurado, o monitor recusa novas sessões.
+
+O servidor compara um hash PBKDF2 com salt e limita tentativas no MongoDB
+em seis por endereço e 30 no total por minuto. O cookie de acesso expira
+em 30 minutos, exige HTTPS e é HttpOnly. O botão Sair revoga a sessão no
+MongoDB. As sessões e as cotas usam a coleção existente `limites_api` e
+seu índice TTL. Alterar o hash invalida as sessões anteriores.
+
+No ambiente público, acesse por HTTPS e configure o proxy da aplicação para
+informar o esquema HTTPS por cabeçalhos encaminhados de proxies confiáveis.
+Se o gateway registrar o corpo de requisições, exclua `/api/v1/monitor/entrar`
+desse registro. Para desenvolvimento local, abra `http://127.0.0.1:8000/monitor`
+em um navegador que aceite cookies Secure em loopback.
 
 Testes não acessam Core, bancos ou provedores reais. Executar `python -m pytest`.
 A validação real do endpoint da Core, permissões MongoDB e migração dos dados

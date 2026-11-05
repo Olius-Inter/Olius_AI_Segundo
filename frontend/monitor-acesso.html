@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acesso ao monitor Olius</title>
+<style>
+  :root{--yellow:#fccc03;--pale:#fff1bb;--cream:#fef7d6;--gold:#ffe996;--ink:#323232;--brown:#743910;--stone:#43362d;--muted:#655b52}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:38px 24px;background:radial-gradient(ellipse at 50% 5%,#fffcf0 0%,var(--cream) 100%);font:16px/1.5 "Segoe UI",Arial,sans-serif;color:var(--ink)}
+  .frame{width:min(1130px,100%)}
+  .top,.bottom{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:12px;color:var(--stone)}
+  .top{margin-bottom:18px}.bottom{margin-top:18px}
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand img{display:block;width:112px;height:auto}
+  .brand small{font-size:11px;font-weight:750;letter-spacing:.13em;margin-left:7px;padding-left:13px;border-left:1px solid #d9c99b;text-transform:uppercase}
+  .card{min-height:610px;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border:1px solid #ece0bd;border-radius:27px;background:white;box-shadow:0 30px 74px #57400f22,0 6px 15px #57400f0e}
+  .story{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;gap:28px;padding:51px 48px 46px;background:linear-gradient(147deg,#fffdf0 1%,var(--pale) 57%,var(--gold) 100%)}
+  .story::before{content:"";position:absolute;z-index:-1;width:525px;height:525px;border:1px solid #d8a60045;border-radius:50%;top:135px;right:-220px;box-shadow:0 0 0 33px #fffcdf65,0 0 0 66px #fffcdf40}
+  .story::after{content:"";position:absolute;z-index:-1;inset:auto auto 36px 27px;width:88px;height:82px;background:radial-gradient(circle,#b9850038 1.2px,transparent 1.4px) 0 0/11px 11px}
+  .tag,.kicker{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.14em;color:var(--brown)}
+  .tag{display:inline-flex;gap:7px;align-items:center;padding:7px 11px;border:1px solid #dfc86a;border-radius:999px;background:#fffdf19e}
+  .tag svg{width:15px;height:15px}
+  h1{font-size:clamp(43px,5.1vw,68px);line-height:.99;letter-spacing:-.065em;margin:25px 0 17px;font-weight:800}
+  .story p{margin:0;max-width:335px;color:var(--stone);font-size:16px}
+  .illustration{width:min(410px,100%);align-self:center;padding:17px 19px 14px;border:1px solid #eee1b0;border-radius:20px;background:#fffcf2;transform:rotate(-4deg);box-shadow:0 16px 31px #73520b28;margin:1px 0 4px}
+  .chart-top{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:750}
+  .chart-top span{font-size:10px;color:var(--brown);background:var(--pale);padding:3px 8px;border-radius:999px}
+  .illustration svg{width:100%;display:block;margin-top:10px}
+  .access{display:grid;align-content:center;padding:54px 72px}
+  .icon{width:49px;height:49px;display:grid;place-items:center;border-radius:14px;background:var(--pale);color:var(--brown);margin-bottom:23px}
+  .icon svg{width:23px;height:23px}
+  h2{font-size:clamp(31px,3.4vw,43px);line-height:1.08;letter-spacing:-.045em;margin:7px 0 11px}
+  .intro{margin:0 0 30px;color:var(--muted)}
+  label{font-size:14px;display:block;font-weight:700;margin-bottom:7px}
+  input,button{width:100%;font:inherit;border-radius:11px;height:50px}
+  input{padding:0 14px;border:1px solid #e2ded9;background:#f5f5f5;color:var(--ink)}
+  input::placeholder{color:var(--muted)}
+  button{border:0;background:var(--yellow);font-weight:750;color:var(--ink);margin-top:13px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 3px 0 #bb8c1b33}
+  button svg{width:17px;height:17px}
+  button{cursor:pointer}
+  button:hover{background:#fcdb03}
+  button:disabled{cursor:wait;opacity:.65}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--brown);outline-offset:3px}
+  .erro{color:var(--brown);background:#fde4cd;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:0}
+  .note{font-size:12px;margin:20px 0 0;color:var(--muted)}
+  @media(max-width:780px){.card{grid-template-columns:1fr}.story{padding:34px 29px;gap:20px}.access{padding:38px 29px}.illustration{display:none}.top,.bottom{font-size:11px}}
+  @media(max-width:450px){body{padding:20px 14px}.brand small{display:none}.bottom{align-items:start}}
+</style>
+<main class="frame">
+  <div class="top">
+    <div class="brand">
+      <img src="/monitor/olius-logo.png" alt="Olius" width="194" height="77">
+      <small>Observabilidade</small>
+    </div>
+  </div>
+  <div class="card">
+    <section class="story" aria-labelledby="chamada">
+      <div>
+        <span class="tag"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg> Operação do chatbot</span>
+        <h1 id="chamada">Olius em<br>números.</h1>
+        <p>Acompanhe a atividade, o desempenho e o uso do chatbot em um só lugar.</p>
+      </div>
+      <div class="illustration" aria-hidden="true">
+        <div class="chart-top">Visão do serviço <span>Ilustração</span></div>
+        <svg viewBox="0 0 370 107" fill="none">
+          <defs><linearGradient id="area" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#fccc03" stop-opacity=".35"/><stop offset="1" stop-color="#fccc03" stop-opacity=".02"/></linearGradient></defs>
+          <path d="M0 15h370M0 42h370M0 69h370M0 96h370" stroke="#eee4c5" stroke-dasharray="4 4"/>
+          <path d="M0 80L44 78L83 61L122 71L163 42L202 51L239 24L281 34L322 15L370 22V103H0Z" fill="url(#area)"/>
+          <path d="M0 80L44 78L83 61L122 71L163 42L202 51L239 24L281 34L322 15L370 22" stroke="#b58500" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="239" cy="24" r="5" fill="#fccc03" stroke="#fffcf2" stroke-width="2"/><circle cx="322" cy="15" r="5" fill="#fccc03" stroke="#fffcf2" stroke-width="2"/>
+        </svg>
+      </div>
+    </section>
+    <section class="access" aria-labelledby="acesso">
+      <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg></div>
+      <div class="kicker">Área interna</div>
+      <h2 id="acesso">Acesse o monitor</h2>
+      <p class="intro">Informe a senha da equipe para visualizar os indicadores.</p>
+      <form id="entrada" method="post" action="/api/v1/monitor/entrar">
+      <label for="senha">Senha de acesso</label>
+      <input id="senha" name="senha" type="password" minlength="20" maxlength="20" placeholder="Digite a senha de 20 caracteres" autocomplete="current-password" required>
+      <button type="submit">Entrar no monitor <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+      <p class="erro" id="erro" role="alert" hidden></p>
+      </form>
+      <p class="note">Acesso exclusivo à equipe Olius.</p>
+    </section>
+  </div>
+  <div class="bottom"><span>Olius · Projeto interdisciplinar</span><span>Painel interno da equipe</span></div>
+</main>
+<script>
+  const formulario = document.getElementById("entrada");
+  const campo = document.getElementById("senha");
+  const botao = formulario.querySelector("button");
+  const erro = document.getElementById("erro");
+
+  formulario.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    if (botao.disabled) return;
+    botao.disabled = true;
+    erro.hidden = true;
+    const corpo = JSON.stringify({ senha: campo.value });
+    campo.value = "";
+
+    try {
+      const resposta = await fetch(formulario.action, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: corpo,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (resposta.status === 204) {
+        window.location.replace("/monitor");
+        return;
+      }
+      if (resposta.status === 401) {
+        erro.textContent = "Senha incorreta. Confira e tente novamente.";
+      } else if (resposta.status === 429) {
+        erro.textContent = "Muitas tentativas. Aguarde um minuto e tente novamente.";
+      } else {
+        erro.textContent = "O acesso ao monitor está indisponível. Tente novamente em instantes.";
+      }
+    } catch {
+      erro.textContent = "Falha de conexão. Tente novamente.";
+    }
+    erro.hidden = false;
+    botao.disabled = false;
+    campo.focus();
+  });
+</script>
+</html>
